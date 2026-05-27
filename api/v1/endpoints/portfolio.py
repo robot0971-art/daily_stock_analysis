@@ -26,12 +26,18 @@ from api.v1.schemas.portfolio import (
     PortfolioImportCommitResponse,
     PortfolioImportParseResponse,
     PortfolioImportTradeItem,
+    PaperTradeExecuteRequest,
+    PaperTradeExecuteResponse,
+    PaperTradePerformanceResponse,
+    PaperTradePrepareRequest,
+    PaperTradePrepareResponse,
     PortfolioRiskResponse,
     PortfolioSnapshotResponse,
     PortfolioTradeListResponse,
     PortfolioTradeCreateRequest,
 )
 from src.services.portfolio_import_service import PortfolioImportService
+from src.services.paper_trading_service import PaperTradingService
 from src.services.portfolio_risk_service import PortfolioRiskService
 from src.services.portfolio_service import (
     PortfolioBusyError,
@@ -565,3 +571,85 @@ def get_risk_report(
         raise _bad_request(exc)
     except Exception as exc:
         raise _internal_error("Get risk report failed", exc)
+
+
+@router.post(
+    "/paper/orders/prepare",
+    response_model=PaperTradePrepareResponse,
+    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+    summary="Prepare a paper trade order for user approval",
+)
+def prepare_paper_order(request: PaperTradePrepareRequest) -> PaperTradePrepareResponse:
+    service = PaperTradingService()
+    try:
+        data = service.prepare_order(
+            account_id=request.account_id,
+            symbol=request.symbol,
+            side=request.side,
+            quantity=request.quantity,
+            price=request.price,
+            trade_date=request.trade_date,
+            market=request.market,
+            currency=request.currency,
+            reason=request.reason,
+            cost_method=request.cost_method,
+        )
+        return PaperTradePrepareResponse(**data)
+    except ValueError as exc:
+        raise _bad_request(exc)
+    except Exception as exc:
+        raise _internal_error("Prepare paper order failed", exc)
+
+
+@router.post(
+    "/paper/orders/execute",
+    response_model=PaperTradeExecuteResponse,
+    responses={400: {"model": ErrorResponse}, 409: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+    summary="Record an approved paper trade order",
+)
+def execute_paper_order(request: PaperTradeExecuteRequest) -> PaperTradeExecuteResponse:
+    service = PaperTradingService()
+    try:
+        data = service.execute_approved_order(
+            prepared_order=request.prepared_order,
+            approval_token=request.approval_token,
+            approved=request.approved,
+        )
+        return PaperTradeExecuteResponse(**data)
+    except PortfolioBusyError as exc:
+        raise _conflict_error(error="portfolio_busy", message=str(exc))
+    except PortfolioOversellError as exc:
+        raise _conflict_error(error="portfolio_oversell", message=str(exc))
+    except PortfolioConflictError as exc:
+        raise _conflict_error(error="portfolio_conflict", message=str(exc))
+    except ValueError as exc:
+        raise _bad_request(exc)
+    except Exception as exc:
+        raise _internal_error("Execute paper order failed", exc)
+
+
+@router.get(
+    "/paper/performance",
+    response_model=PaperTradePerformanceResponse,
+    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+    summary="Get paper trading performance summary",
+)
+def get_paper_performance(
+    account_id: Optional[int] = Query(None, description="Optional account id"),
+    as_of: Optional[date] = Query(None, description="Mark open paper trades at this date"),
+    cost_method: str = Query("fifo", description="Cost method: fifo or avg"),
+    eval_window_days: Optional[int] = Query(None, ge=1, description="Optional backtest comparison window"),
+) -> PaperTradePerformanceResponse:
+    service = PaperTradingService()
+    try:
+        data = service.get_performance(
+            account_id=account_id,
+            as_of=as_of,
+            cost_method=cost_method,
+            eval_window_days=eval_window_days,
+        )
+        return PaperTradePerformanceResponse(**data)
+    except ValueError as exc:
+        raise _bad_request(exc)
+    except Exception as exc:
+        raise _internal_error("Get paper performance failed", exc)

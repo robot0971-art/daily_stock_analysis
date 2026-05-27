@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { BarChart3, Bell, BriefcaseBusiness, Home, LogOut, MessageSquareQuote, Settings2 } from 'lucide-react';
+import { BarChart3, Bell, BriefcaseBusiness, Home, LineChart, LogOut, MessageSquareQuote, Settings2 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAgentChatStore } from '../../stores/agentChatStore';
@@ -27,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'home', label: '홈', to: '/', icon: Home, exact: true },
   { key: 'chat', label: 'AI 종목 상담', to: '/chat', icon: MessageSquareQuote, badge: 'completion' },
   { key: 'portfolio', label: '포트폴리오', to: '/portfolio', icon: BriefcaseBusiness },
+  { key: 'charts', label: '차트 분석', to: '/charts', icon: LineChart },
   { key: 'backtest', label: '백테스트', to: '/backtest', icon: BarChart3 },
   { key: 'alerts', label: '알림', to: '/alerts', icon: Bell },
   { key: 'settings', label: '설정', to: '/settings', icon: Settings2 },

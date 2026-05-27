@@ -515,6 +515,7 @@ def _handle_get_portfolio_snapshot(
     cost_method: str = "fifo",
     include_positions: bool = False,
     include_risk: bool = True,
+    include_analysis: bool = False,
     as_of: Optional[str] = None,
 ) -> dict:
     """Get compact portfolio snapshot for account-aware suggestions."""
@@ -532,6 +533,7 @@ def _handle_get_portfolio_snapshot(
     try:
         from src.services.portfolio_service import PortfolioService
         from src.services.portfolio_risk_service import PortfolioRiskService
+        from src.services.portfolio_analysis_service import PortfolioAnalysisService
     except Exception as exc:
         logger.warning("get_portfolio_snapshot unavailable: %s", exc)
         return {"status": "not_supported", "error": f"portfolio module unavailable: {exc}"}
@@ -559,6 +561,29 @@ def _handle_get_portfolio_snapshot(
             except Exception as risk_exc:
                 logger.warning("get_portfolio_snapshot risk block failed: %s", risk_exc)
                 result["risk"] = {"status": "failed", "error": str(risk_exc)}
+        if include_analysis:
+            try:
+                risk_service = PortfolioRiskService(portfolio_service=portfolio_service)
+                analysis_service = PortfolioAnalysisService(
+                    portfolio_service=portfolio_service,
+                    risk_service=risk_service,
+                )
+                result["analysis"] = {
+                    "status": "ok",
+                    **analysis_service.analyze(
+                        account_id=account_id,
+                        as_of=as_of_date,
+                        cost_method=method,
+                    ),
+                }
+                result["analysis_summary"] = analysis_service.build_report_summary(result["analysis"])
+            except Exception as analysis_exc:
+                logger.warning("get_portfolio_snapshot analysis block failed: %s", analysis_exc)
+                result["analysis"] = {"status": "failed", "error": str(analysis_exc)}
+                result["analysis_summary"] = {
+                    "status": "failed",
+                    "error": str(analysis_exc),
+                }
         return result
     except Exception as exc:
         logger.warning("get_portfolio_snapshot failed: %s", exc)
@@ -569,7 +594,8 @@ get_portfolio_snapshot_tool = ToolDefinition(
     name="get_portfolio_snapshot",
     description="Get portfolio snapshot summary and optional risk blocks. "
                 "Default returns compact summary for lower token usage; "
-                "set include_positions=true to include full position details.",
+                "set include_positions=true to include full position details. "
+                "When include_analysis=true, returns analysis_summary for report-ready portfolio context.",
     parameters=[
         ToolParameter(
             name="account_id",
@@ -599,6 +625,13 @@ get_portfolio_snapshot_tool = ToolDefinition(
             description="Whether to include risk summary block (default: true).",
             required=False,
             default=True,
+        ),
+        ToolParameter(
+            name="include_analysis",
+            type="boolean",
+            description="Whether to include portfolio exposure, diversification, and rebalance hints.",
+            required=False,
+            default=False,
         ),
         ToolParameter(
             name="as_of",
@@ -674,7 +707,7 @@ def _handle_get_capital_flow(stock_code: str) -> dict:
 get_capital_flow_tool = ToolDefinition(
     name="get_capital_flow",
     description=(
-        "Get main-force (zhuli) capital flow data for an A-share stock. "
+        "Get main-force (主力) capital flow data for an A-share stock. "
         "Returns today's net inflow, 5-day and 10-day cumulative inflows, "
         "and top sector-level capital flow rankings. "
         "Only supported for A-share individual stocks (not ETFs, indices, HK, or US stocks)."

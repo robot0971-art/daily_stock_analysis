@@ -1,33 +1,93 @@
-# LiteLLM advanced routing example.
-# Copy this file to litellm_config.yaml and set LITELLM_CONFIG=./litellm_config.yaml.
-# Prefer environment variable references for API keys.
+# ===================================
+# Advanced model routing YAML template
+# Compatible with LiteLLM Router.
+# ===================================
+# Related document: docs/LLM_CONFIG_GUIDE.md
+#
+# Usage:
+# 1. Copy this file to litellm_config.yaml.
+# 2. Set LITELLM_CONFIG=./litellm_config.yaml in `.env`.
+# 3. Adjust model_list for the providers you actually use.
+#
+# API key examples:
+#   api_key: "os.environ/ENV_VAR_NAME"  # recommended: read from environment
+#   api_key: "sk-xxxxxxxx"              # possible, but avoid committing it
+#
+# Reference: https://docs.litellm.ai/docs/proxy/configs
+# ===================================
 
 model_list:
+  # --- SiliconFlow (OpenAI-compatible, one key can route multiple models) ---
+  - model_name: openai/Qwen/Qwen3.5-397B-A17B
+    litellm_params:
+      model: openai/Qwen/Qwen3.5-397B-A17B
+      api_key: "os.environ/LITELLM_API_KEY"
+      api_base: https://api.siliconflow.cn/v1
+      # Optional provider-specific request body for models that support it.
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: true
+
+  # --- AIHubMix (OpenAI-compatible, one key can route multiple models) ---
   - model_name: openai/gpt-4o-mini
     litellm_params:
       model: openai/gpt-4o-mini
-      api_key: "os.environ/OPENAI_API_KEY"
-      api_base: https://api.openai.com/v1
+      api_key: "os.environ/AIHUBMIX_KEY"
+      api_base: https://aihubmix.com/v1
 
+  - model_name: openai/claude-3-5-sonnet-20241022
+    litellm_params:
+      model: openai/claude-3-5-sonnet-20241022
+      api_key: "os.environ/AIHUBMIX_KEY"
+      api_base: https://aihubmix.com/v1
+
+  # --- DeepSeek official API ---
   - model_name: deepseek/deepseek-chat
     litellm_params:
       model: deepseek/deepseek-chat
       api_key: "os.environ/DEEPSEEK_API_KEY"
 
+  - model_name: deepseek/deepseek-reasoner
+    litellm_params:
+      model: deepseek/deepseek-reasoner
+      api_key: "os.environ/DEEPSEEK_API_KEY"
+
+  # --- Google Gemini, using two independent keys as separate deployments ---
   - model_name: gemini/gemini-2.5-flash
     litellm_params:
       model: gemini/gemini-2.5-flash
-      api_key: "os.environ/GEMINI_API_KEY"
+      api_key: "os.environ/GEMINI_API_KEY_1"
 
-  # Local Ollama example.
-  # - model_name: ollama/llama3.1
+  - model_name: gemini/gemini-2.5-flash
+    litellm_params:
+      model: gemini/gemini-2.5-flash
+      api_key: "os.environ/GEMINI_API_KEY_2"
+
+  # --- Anthropic Claude ---
+  # - model_name: anthropic/claude-3-5-sonnet-20241022
   #   litellm_params:
-  #     model: ollama/llama3.1
+  #     model: anthropic/claude-3-5-sonnet-20241022
+  #     api_key: "os.environ/ANTHROPIC_API_KEY"
+
+  # --- OpenRouter ---
+  # - model_name: openai/meta-llama/llama-3-70b-instruct
+  #   litellm_params:
+  #     model: openai/meta-llama/llama-3-70b-instruct
+  #     api_key: "os.environ/OPENROUTER_API_KEY"
+  #     api_base: https://openrouter.ai/api/v1
+
+  # --- Local Ollama ---
+  # - model_name: ollama/qwen3:8b
+  #   litellm_params:
+  #     model: ollama/qwen3:8b
   #     api_base: http://localhost:11434
 
+# ===================================
+# Router settings
+# ===================================
 router_settings:
-  routing_strategy: simple-shuffle
-  num_retries: 2
-  # timeout: 30
-  # allowed_fails: 3
-  # cooldown_time: 60
+  routing_strategy: simple-shuffle    # simple-shuffle / least-busy / latency-based
+  num_retries: 2                      # retry count per deployment
+  # timeout: 30                       # request timeout in seconds
+  # allowed_fails: 3                  # failures before cooldown
+  # cooldown_time: 60                 # cooldown time in seconds

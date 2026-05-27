@@ -19,6 +19,8 @@ from src.report_language import (
     get_localized_stock_name,
     get_report_labels,
     get_signal_level,
+    get_chip_unavailable_reason,
+    is_chip_structure_unavailable,
     localize_chip_health,
     localize_operation_advice,
     localize_trend_prediction,
@@ -46,8 +48,8 @@ def _clean_sniper_value(val: Any) -> str:
     if not s or s == "N/A":
         return s or "N/A"
     prefixes = [
-        "lixiangmairudian:", "ciyoumairudian:", "zhisunwei:", "mubiaowei:",
-        "lixiangmairudian:", "ciyoumairudian:", "zhisunwei:", "mubiaowei:",
+        "理想买入点：", "次优买入点：", "止损位：", "目标位：",
+        "理想买入点:", "次优买入点:", "止损位:", "目标位:",
         "Ideal Entry:", "Secondary Entry:", "Stop Loss:", "Target:",
     ]
     for prefix in prefixes:
@@ -110,7 +112,7 @@ def render(
             (getattr(result, "report_language", None) for result in results if getattr(result, "report_language", None)),
             None,
         )
-        or getattr(get_config(), "report_language", "zh")
+        or getattr(get_config(), "report_language", "ko")
     )
     labels = get_report_labels(report_language)
 
@@ -163,6 +165,8 @@ def render(
         "clean_sniper": _clean_sniper_value,
         "failed_checks": failed_checks,
         "history_by_code": {},
+        "get_chip_unavailable_reason": get_chip_unavailable_reason,
+        "is_chip_structure_unavailable": is_chip_structure_unavailable,
         "localize_operation_advice": localize_operation_advice,
         "localize_trend_prediction": localize_trend_prediction,
         "localize_chip_health": localize_chip_health,

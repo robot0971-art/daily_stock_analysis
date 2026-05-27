@@ -1,87 +1,98 @@
-# huanjingbianliangwenjian（baohanminganxinxi，jinzhitijiao）
-.env
-.env.*
-*.env
-*.env.local
-.env.*.local
-
-# ceshiwenjian（kenengbaohanminganpeizhi）
-# jinhulvecangkugenmuluxiadelinshi test_*.py jiaoben；tests/ muluxiadedanyuanceshixuyaonarubanbenkongzhi。
-/test_*.py
-/test.sh
-
-# bendipingshenyugaojiluyoupeizhi（kenengbaohanminganxinxihuolinshifenxichanwu）
-/.codex
-/review.md
-/litellm_config.yaml
-/litellm_config.*.yaml
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# xunihuanjing
-venv/
-ENV/
-env/
-.venv/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-.cursorrules
-
-# shujuherizhi
-/data/
-logs/
-reports/
-*.db
-*.sqlite
-*.sqlite3
-
-# xitongwenjian
-.DS_Store
-Thumbs.db
-
-# ceshi
-.pytest_cache/
-.coverage
-htmlcov/
-
-local/
-
-run.sh
-
-verify_*.py
-
-# ignore Claude workspace artifacts, but keep shared repo skills versioned
-.claude/*
-!.claude/skills/
-!.claude/skills/**
-
-# ignore static files
-static/
-/apps/dsa-desktop/dist/
-/apps/dsa-desktop/node_modules/
-docs/specs/
+# Environment files can contain secrets and must stay local.
+.env
+.env.*
+*.env
+*.env.local
+.env.*.local
+
+# Temporary root-level test scripts, excluding committed test modules.
+/test_*.py
+/test.sh
+
+# Local agent and review outputs.
+/.codex
+/.agentq/
+/review.md
+/litellm_config.yaml
+/litellm_config.*.yaml
+
+# Local chart preview artifacts.
+/chart_preview.html
+/apps/dsa-web/chart-analysis-preview.png
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.cursorrules
+
+# Data and logs
+/data/
+logs/
+reports/
+*.db
+*.sqlite
+*.sqlite3
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Test outputs
+.pytest_cache/
+.coverage
+htmlcov/
+
+local/
+run.sh
+verify_*.py
+
+# Claude local work outputs are ignored, but shared repository skills are tracked.
+.claude/*
+!.claude/skills/
+!.claude/skills/**
+
+# Static frontend build outputs. Keep the built entry files tracked.
+static/*
+!static/index.html
+!static/vite.svg
+!static/stocks.index.json
+!static/assets/
+static/assets/*
+!static/assets/*.css
+!static/assets/*.js
+.electron-builder-cache/
+stock_analysis.spec
+/apps/dsa-desktop/dist/
+/apps/dsa-desktop/node_modules/
+docs/specs/

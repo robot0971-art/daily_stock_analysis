@@ -22,10 +22,10 @@ from src.services.report_renderer import render
 
 def _make_result(
     code: str = "600519",
-    name: str = "guizhoumaotai",
+    name: str = "贵州茅台",
     sentiment_score: int = 72,
-    operation_advice: str = "chiyou",
-    analysis_summary: str = "wenjian",
+    operation_advice: str = "持有",
+    analysis_summary: str = "稳健",
     decision_type: str = "hold",
     dashboard: dict = None,
     report_language: str = "zh",
@@ -33,14 +33,14 @@ def _make_result(
 ) -> AnalysisResult:
     if dashboard is None:
         dashboard = {
-            "core_conclusion": {"one_sentence": "chiyouguanwang"},
+            "core_conclusion": {"one_sentence": "持有观望"},
             "intelligence": {"risk_alerts": []},
             "battle_plan": {"sniper_points": {"stop_loss": "110"}},
         }
     return AnalysisResult(
         code=code,
         name=name,
-        trend_prediction="kanduo",
+        trend_prediction="看多",
         sentiment_score=sentiment_score,
         operation_advice=operation_advice,
         analysis_summary=analysis_summary,
@@ -67,32 +67,103 @@ class TestReportRenderer(unittest.TestCase):
         r = _make_result()
         out = render("markdown", [r], summary_only=True)
         self.assertIsNotNone(out)
-        self.assertIn("jueceyibiaopan", out)
-        self.assertIn("guizhoumaotai", out)
-        self.assertIn("chiyou", out)
+        self.assertIn("决策仪表盘", out)
+        self.assertIn("贵州茅台", out)
+        self.assertIn("持有", out)
 
     def test_render_markdown_full(self) -> None:
         """Markdown platform renders full report."""
         r = _make_result()
         out = render("markdown", [r], summary_only=False)
         self.assertIsNotNone(out)
-        self.assertIn("hexinjielun", out)
-        self.assertIn("zuozhanjihua", out)
+        self.assertIn("核心结论", out)
+        self.assertIn("作战计划", out)
+
+    def test_render_markdown_full_shows_evidence_and_limitations(self) -> None:
+        """Markdown platform renders evidence, confidence, and data limitations."""
+        r = _make_result()
+        r.evidence_points = ["MA5 remains above MA20"]
+        r.counter_evidence = ["Price is near resistance"]
+        r.data_limitations = ["News data was not refreshed"]
+        r.confidence_reason = "Technical evidence is clear, but news coverage is incomplete."
+        r.analysis_confidence = {"score": 0.74, "label": "medium"}
+
+        out = render("markdown", [r], summary_only=False)
+
+        self.assertIsNotNone(out)
+        self.assertIn("分析依据", out)
+        self.assertIn("MA5 remains above MA20", out)
+        self.assertIn("Price is near resistance", out)
+        self.assertIn("News data was not refreshed", out)
+        self.assertIn("74%", out)
+
+    def test_render_markdown_full_shows_thesis_tracking(self) -> None:
+        """Markdown platform renders previous-analysis thesis tracking."""
+        r = _make_result()
+        r.thesis_tracking = {
+            "status": "weakened",
+            "current_thesis": "Momentum weakened.",
+            "previous_thesis": "Buy the pullback.",
+            "key_changes": ["Sentiment score changed by -20 points."],
+        }
+
+        out = render("markdown", [r], summary_only=False)
+
+        self.assertIsNotNone(out)
+        self.assertIn("上次分析以来的变化", out)
+        self.assertIn("Momentum weakened.", out)
+        self.assertIn("Buy the pullback.", out)
+        self.assertIn("Sentiment score changed by -20 points.", out)
+
+    def test_render_markdown_full_shows_evidence_graph_summary(self) -> None:
+        r = _make_result()
+        r.evidence_graph = {
+            "summary": {
+                "supporting_evidence": 2,
+                "counter_evidence": 1,
+                "risks": 1,
+                "stale_nodes": 1,
+            }
+        }
+
+        out = render("markdown", [r], summary_only=False)
+
+        self.assertIsNotNone(out)
+        self.assertIn("依据关系图", out)
+        self.assertIn("2 supporting / 1 counter / 1 risks", out)
+
+    def test_render_markdown_full_shows_stock_risk_report(self) -> None:
+        r = _make_result()
+        r.stock_risk_report = {
+            "risk_level": "medium",
+            "risk_score": 50,
+            "volatility_pct": 32.5,
+            "max_drawdown_pct": 18.2,
+            "position_caution": "Keep position size controlled.",
+            "flags": [{"severity": "medium", "reason": "Price is extended."}],
+        }
+
+        out = render("markdown", [r], summary_only=False)
+
+        self.assertIsNotNone(out)
+        self.assertIn("风险引擎", out)
+        self.assertIn("32.5%", out)
+        self.assertIn("Keep position size controlled.", out)
 
     def test_render_wechat(self) -> None:
         """Wechat platform renders."""
         r = _make_result()
         out = render("wechat", [r])
         self.assertIsNotNone(out)
-        self.assertIn("guizhoumaotai", out)
+        self.assertIn("贵州茅台", out)
 
     def test_render_brief(self) -> None:
         """Brief platform renders 3-5 sentence summary."""
         r = _make_result()
         out = render("brief", [r])
         self.assertIsNotNone(out)
-        self.assertIn("juecejianbao", out)
-        self.assertIn("guizhoumaotai", out)
+        self.assertIn("决策简报", out)
+        self.assertIn("贵州茅台", out)
 
     def test_render_brief_respects_model_visibility_toggle(self) -> None:
         r = _make_result(model_used="gemini/gemini-2.5-flash")
@@ -104,8 +175,8 @@ class TestReportRenderer(unittest.TestCase):
 
         self.assertIsNotNone(visible)
         self.assertIsNotNone(hidden)
-        self.assertIn("fenximoxing: gemini/gemini-2.5-flash", visible)
-        self.assertNotIn("fenximoxing", hidden)
+        self.assertIn("分析模型: gemini/gemini-2.5-flash", visible)
+        self.assertNotIn("分析模型", hidden)
         self.assertNotIn("gemini/gemini-2.5-flash", hidden)
 
     def test_render_markdown_footer_uses_consistent_separator(self) -> None:
@@ -115,9 +186,9 @@ class TestReportRenderer(unittest.TestCase):
             out = render("markdown", [r], summary_only=True)
 
         self.assertIsNotNone(out)
-        self.assertIn("baogaoshengchengshijian:", out)
-        self.assertIn("fenximoxing:gemini/gemini-2.5-flash", out)
-        self.assertNotIn("fenximoxing: gemini/gemini-2.5-flash", out)
+        self.assertIn("报告生成时间：", out)
+        self.assertIn("分析模型：gemini/gemini-2.5-flash", out)
+        self.assertNotIn("分析模型: gemini/gemini-2.5-flash", out)
 
     def test_render_markdown_in_english(self) -> None:
         """Markdown renderer switches headings and summary labels for English reports."""
@@ -163,6 +234,27 @@ class TestReportRenderer(unittest.TestCase):
         self.assertIsNotNone(out)
         self.assertIn("Market Snapshot", out)
         self.assertIn("Volume Ratio", out)
+
+    def test_render_markdown_collapses_unavailable_chip_structure(self) -> None:
+        r = _make_result(
+            dashboard={
+                "core_conclusion": {"one_sentence": "持有观望"},
+                "data_perspective": {
+                    "chip_structure": {
+                        "profit_ratio": "数据缺失，无法判断",
+                        "avg_cost": "数据缺失，无法判断",
+                        "concentration": "数据缺失，无法判断",
+                        "chip_health": "数据缺失，无法判断",
+                    }
+                },
+            }
+        )
+
+        out = render("markdown", [r], summary_only=False)
+
+        self.assertIsNotNone(out)
+        self.assertIn("**筹码**: 筹码分布未启用或数据源暂不可用，未纳入筹码判断。", out)
+        self.assertEqual(out.count("数据缺失，无法判断"), 0)
 
     def test_render_unknown_platform_returns_none(self) -> None:
         """Unknown platform returns None (caller fallback)."""

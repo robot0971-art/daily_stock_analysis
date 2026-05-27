@@ -89,7 +89,7 @@ class TestIsCodeLike:
 
     # --- Negative cases ---
     def test_plain_text(self):
-        assert is_code_like("guizhoumaotai") is False
+        assert is_code_like("贵州茅台") is False
 
     def test_empty(self):
         assert is_code_like("") is False
@@ -172,12 +172,18 @@ class TestNormalizeCode:
     def test_us_ticker(self):
         assert normalize_code("AAPL") == "AAPL"
 
+    def test_krx_suffix_and_prefix(self):
+        assert normalize_code("005930.KS") == "005930.KS"
+        assert normalize_code("091990.KQ") == "091990.KQ"
+        assert normalize_code("KR005930") == "005930.KS"
+        assert normalize_code("KQ091990") == "091990.KQ"
+
     # --- Invalid inputs ---
     def test_empty_returns_none(self):
         assert normalize_code("") is None
 
     def test_plain_text_returns_none(self):
-        assert normalize_code("guizhoumaotai") is None
+        assert normalize_code("贵州茅台") is None
 
     def test_partial_prefix_no_digits_returns_none(self):
         # SH followed by wrong digit count

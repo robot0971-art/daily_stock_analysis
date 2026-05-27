@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-AgentOrchestrator – multi-agent pipeline coordinator.
+AgentOrchestrator — multi-agent pipeline coordinator.
 
-Manages the lifecycle of specialised agents (Technical – Intel – Risk –
-Specialist – Decision) for a single stock analysis run.
+Manages the lifecycle of specialised agents (Technical → Intel → Risk →
+Specialist → Decision) for a single stock analysis run.
 
 Modes:
-- ``quick``   : Technical only – Decision (fastest, ~2 LLM calls)
-- ``standard``: Technical – Intel – Decision (default)
-- ``full``    : Technical – Intel – Risk – Decision
-- ``specialist``: Technical – Intel – Risk – specialist evaluation – Decision
+- ``quick``   : Technical only → Decision (fastest, ~2 LLM calls)
+- ``standard``: Technical → Intel → Decision (default)
+- ``full``    : Technical → Intel → Risk → Decision
+- ``specialist``: Technical → Intel → Risk → specialist evaluation → Decision
 
 The orchestrator:
 1. Seeds an :class:`AgentContext` with the user query and stock code
@@ -42,7 +42,8 @@ from src.agent.protocols import (
 )
 from src.agent.runner import parse_dashboard_json
 from src.agent.tools.registry import ToolRegistry
-from src.config import AGENT_MAX_STEPS_DEFAULT
+from src.agent.chat_context import build_visible_chat_history
+from src.config import AGENT_MAX_STEPS_DEFAULT, get_config
 from src.report_language import normalize_report_language
 
 if TYPE_CHECKING:
@@ -73,7 +74,7 @@ class OrchestratorResult:
 class AgentOrchestrator:
     """Multi-agent pipeline coordinator.
 
-    Drop-in replacement for ``AgentExecutor`` ??exposes the same ``run()``
+    Drop-in replacement for ``AgentExecutor`` — exposes the same ``run()``
     and ``chat()`` interface.  The factory switches between them via
     ``AGENT_ARCH``.
     """
@@ -131,11 +132,12 @@ class AgentOrchestrator:
         dashboard = None
         content = ""
         if ctx is not None:
+            ctx.set_data("tool_calls_log", all_tool_calls)
             dashboard, content = self._resolve_final_output(ctx, parse_dashboard=parse_dashboard)
             if parse_dashboard and dashboard is not None:
                 dashboard = self._mark_partial_dashboard(
                     dashboard,
-                    note="멀티 에이전트 작업이 시간 초과되어 완료된 단계의 정보만으로 결론을 자동 생성했습니다.",
+                    note="多 Agent 超时，以下结论基于已完成阶段自动降级生成。",
                 )
                 ctx.set_data("final_dashboard", dashboard)
                 content = json.dumps(dashboard, ensure_ascii=False, indent=2)
@@ -172,11 +174,12 @@ class AgentOrchestrator:
         dashboard = None
         content = ""
         if ctx is not None:
+            ctx.set_data("tool_calls_log", all_tool_calls)
             dashboard, content = self._resolve_final_output(ctx, parse_dashboard=parse_dashboard)
             if parse_dashboard and dashboard is not None:
                 dashboard = self._mark_partial_dashboard(
                     dashboard,
-                    note="멀티 에이전트 예산이 부족해 완료된 단계의 정보만으로 결론을 자동 생성했습니다.",
+                    note="多 Agent 预算不足，以下结论基于已完成阶段自动降级生成。",
                 )
                 ctx.set_data("final_dashboard", dashboard)
                 content = json.dumps(dashboard, ensure_ascii=False, indent=2)
@@ -203,7 +206,7 @@ class AgentOrchestrator:
 
         When the orchestrator-level ``max_steps`` equals the default
         (``AGENT_MAX_STEPS_DEFAULT``),
-        each agent keeps its own per-agent limit ??this prevents inflating
+        each agent keeps its own per-agent limit — this prevents inflating
         a decision agent (designed for 3 steps) to 10 steps.
 
         When the user **explicitly** raises the global limit above the
@@ -215,10 +218,10 @@ class AgentOrchestrator:
         """
         if hasattr(agent, "max_steps"):
             if self.max_steps > AGENT_MAX_STEPS_DEFAULT:
-                # User explicitly raised the limit ??apply to all agents.
+                # User explicitly raised the limit — apply to all agents.
                 agent.max_steps = self.max_steps
             else:
-                # Default or lowered ??keep per-agent limit as ceiling.
+                # Default or lowered — keep per-agent limit as ceiling.
                 agent.max_steps = min(agent.max_steps, self.max_steps)
         return agent
 
@@ -315,8 +318,9 @@ class AgentOrchestrator:
         ctx.session_id = session_id
         ctx.meta["response_mode"] = "chat"
 
-        session = conversation_manager.get_or_create(session_id)
-        history = session.get_history()
+        conversation_manager.get_or_create(session_id)
+        config = self.config or getattr(self.llm_adapter, "_config", None) or get_config()
+        history = build_visible_chat_history(session_id, self.llm_adapter, config)
         if history:
             ctx.meta["conversation_history"] = history
 
@@ -335,7 +339,7 @@ class AgentOrchestrator:
         else:
             conversation_manager.add_message(
                 session_id, "assistant",
-                f"[analysisshibai] {orch_result.error or 'weizhicuowu'}",
+                f"[分析失败] {orch_result.error or '未知错误'}",
             )
 
         return AgentResult(
@@ -545,6 +549,7 @@ class AgentOrchestrator:
         total_duration = round(time.time() - t0, 2)
         stats.total_duration_s = total_duration
         stats.models_used = list(dict.fromkeys(models_used))
+        ctx.set_data("tool_calls_log", all_tool_calls)
 
         dashboard, content = self._resolve_final_output(ctx, parse_dashboard=parse_dashboard)
 
@@ -706,6 +711,8 @@ class AgentOrchestrator:
             ctx.meta["skills_requested"] = requested_skills or []
             ctx.meta["strategies_requested"] = requested_skills or []
             ctx.meta["report_language"] = normalize_report_language(context.get("report_language", "zh"))
+            if context.get("market_phase_context"):
+                ctx.meta["market_phase_context"] = context["market_phase_context"]
 
             # Pre-populate data fields that the caller already has
             for data_key in ("realtime_quote", "daily_history", "chip_distribution",
@@ -799,7 +806,7 @@ class AgentOrchestrator:
             return None
 
         ctx.set_data("final_dashboard", dashboard)
-        # Apply risk override (idempotent ??safe to call even if already
+        # Apply risk override (idempotent — safe to call even if already
         # applied in _execute_pipeline after the decision stage).
         self._apply_risk_override(ctx)
         overridden = ctx.get_data("final_dashboard")
@@ -868,7 +875,7 @@ class AgentOrchestrator:
             getattr(base_opinion, "reasoning", ""),
         )
         if not analysis_summary:
-            analysis_summary = f"멀티 에이전트가 완전한 대시보드를 생성하지 못해 현재 신호는 {_signal_to_operation(decision_type)}로 처리합니다."
+            analysis_summary = f"多 Agent 未生成完整仪表盘，当前按{_signal_to_operation(decision_type)}处理。"
         analysis_summary = _truncate_text(analysis_summary, 220)
 
         trend_prediction = _first_non_empty_text(
@@ -882,9 +889,9 @@ class AgentOrchestrator:
             ma_alignment = tech_raw.get("ma_alignment")
             trend_score = tech_raw.get("trend_score")
             if ma_alignment or trend_score is not None:
-                trend_prediction = f"jishumian{ma_alignment or 'neutral'}(chinese removed)똰ushipingfen {trend_score if trend_score is not None else 'N/A'}"
+                trend_prediction = f"技术面{ma_alignment or 'neutral'}，趋势评分 {trend_score if trend_score is not None else 'N/A'}"
             else:
-                trend_prediction = "daijiehegengduojieduanjieguoconfirm"
+                trend_prediction = "待结合更多阶段结果确认"
 
         operation_advice_raw = payload.get("operation_advice")
         operation_advice = _normalize_operation_advice_value(operation_advice_raw, decision_type)
@@ -938,7 +945,7 @@ class AgentOrchestrator:
             "stop_loss",
             key_levels.get("stop_loss")
             or key_levels.get("strong_support_stop_loss")
-            or "daibuchong",
+            or "待补充",
         )
         sniper.setdefault(
             "take_profit",
@@ -963,7 +970,7 @@ class AgentOrchestrator:
         if not core.get("one_sentence"):
             core["one_sentence"] = _truncate_text(analysis_summary, 60)
         if not core.get("time_sensitivity"):
-            core["time_sensitivity"] = "benzhounei"
+            core["time_sensitivity"] = "本周内"
         if not core.get("signal_type"):
             core["signal_type"] = _signal_to_signal_type(decision_type)
         core["position_advice"] = position_advice
@@ -976,7 +983,7 @@ class AgentOrchestrator:
             battle["position_strategy"] = {
                 "suggested_position": _default_position_size(decision_type),
                 "entry_plan": position_advice["no_position"],
-                "risk_control": f"zhisuncankao {sniper.get('stop_loss', 'daibuchong')}",
+                "risk_control": f"止损参考 {sniper.get('stop_loss', '待补充')}",
             }
 
         data_perspective = dashboard_block.get("data_perspective")
@@ -1003,11 +1010,11 @@ class AgentOrchestrator:
 
         risk_warning = _first_non_empty_text(
             payload.get("risk_warning"),
-            " / ".join(risk_alerts[:3]),
+            "；".join(risk_alerts[:3]),
             getattr(self._latest_opinion(ctx, {"risk"}), "reasoning", ""),
         )
         if not risk_warning:
-            risk_warning = "추가 리스크 안내가 없습니다."
+            risk_warning = "暂无额外风险提示"
 
         payload["stock_name"] = _first_non_empty_text(payload.get("stock_name"), ctx.stock_name, ctx.stock_code)
         payload["sentiment_score"] = sentiment_score
@@ -1019,7 +1026,464 @@ class AgentOrchestrator:
         payload["key_points"] = key_points
         payload["risk_warning"] = risk_warning
         payload["dashboard"] = dashboard_block
+        analysis_map = self._build_analysis_map(ctx, dashboard_block, payload)
+        payload["analysis_map"] = analysis_map
+        payload["analysis_confidence"] = self._build_analysis_confidence(ctx, confidence, analysis_map)
         return payload
+
+    def _build_analysis_map(
+        self,
+        ctx: AgentContext,
+        dashboard_block: Dict[str, Any],
+        payload: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Build a compact map of the analysis flow for UI/audit surfaces."""
+        present_agents = {op.agent_name for op in ctx.opinions}
+
+        def _has_nested(section: str) -> bool:
+            value = dashboard_block.get(section)
+            return isinstance(value, dict) and bool(value)
+
+        data_sources = []
+        source_checks = (
+            ("realtime_quote", "price"),
+            ("daily_history", "history"),
+            ("trend_result", "technical_indicators"),
+            ("chip_distribution", "chip_distribution"),
+            ("news_context", "news"),
+            ("fundamental_context", "fundamentals"),
+        )
+        for key, label in source_checks:
+            value = ctx.get_data(key)
+            if value is not None:
+                data_sources.append({
+                    "id": key,
+                    "label": label,
+                    "available": True,
+                    "kind": "input",
+                    "reason": self._data_source_reason(key),
+                })
+
+        tool_trace = self._build_tool_trace(ctx)
+        tool_metrics = self._build_tool_metrics(tool_trace)
+
+        nodes = [
+            {
+                "id": "data",
+                "label": "Data Collection",
+                "role": "input",
+                "status": "available" if data_sources else "missing",
+                "reason": "Collected market, technical, news, or fundamental inputs.",
+            },
+            {
+                "id": "technical",
+                "label": "Technical Analysis",
+                "role": "analysis",
+                "status": "completed" if "technical" in present_agents or _has_nested("data_perspective") else "missing",
+                "reason": "Uses price, trend, volume, support, and resistance context.",
+            },
+            {
+                "id": "chart",
+                "label": "Chart Structure",
+                "role": "analysis",
+                "status": "completed" if self._tool_was_used(tool_trace, "generate_chart_analysis") else "optional",
+                "reason": "Checks visual structure, support/resistance, patterns, and RSI/MACD conflicts.",
+            },
+            {
+                "id": "intel",
+                "label": "News and Fundamentals",
+                "role": "analysis",
+                "status": "completed" if "intel" in present_agents or _has_nested("intelligence") else "missing",
+                "reason": "Checks news, sentiment, earnings, catalysts, and headline risk.",
+            },
+            {
+                "id": "risk",
+                "label": "Risk Review",
+                "role": "guardrail",
+                "status": "completed" if "risk" in present_agents or ctx.risk_flags else "missing",
+                "reason": "Looks for veto, downgrade, and high-severity risk conditions.",
+            },
+            {
+                "id": "decision",
+                "label": "Decision",
+                "role": "output",
+                "status": "completed" if "decision" in present_agents or payload.get("decision_type") else "missing",
+                "reason": "Combines available signals into decision type, confidence, and action plan.",
+            },
+            {
+                "id": "portfolio",
+                "label": "Portfolio Context",
+                "role": "context",
+                "status": "completed" if self._tool_was_used(tool_trace, "get_portfolio_snapshot") else "optional",
+                "reason": "Adds account exposure, diversification, risk, and rebalance context when portfolio questions are asked.",
+            },
+            {
+                "id": "paper_trading",
+                "label": "Paper Trading Guardrail",
+                "role": "action_guardrail",
+                "status": "completed" if self._tool_was_used(tool_trace, "prepare_paper_order") else "optional",
+                "reason": "Prepares simulated orders for approval with risk checks while real broker execution remains disabled.",
+            },
+        ]
+
+        edges = [
+            {"from": "data", "to": "technical", "reason": "Market data feeds technical signals."},
+            {"from": "data", "to": "chart", "reason": "Daily bars feed chart structure and indicator conflict checks."},
+            {"from": "data", "to": "intel", "reason": "Context guides news and fundamentals checks."},
+            {"from": "chart", "to": "technical", "reason": "Chart structure complements numeric technical indicators."},
+            {"from": "technical", "to": "risk", "reason": "Weak levels or volatility can raise risk."},
+            {"from": "intel", "to": "risk", "reason": "News and fundamentals can raise risk."},
+            {"from": "technical", "to": "decision", "reason": "Trend and levels inform the final action."},
+            {"from": "chart", "to": "decision", "reason": "Support, resistance, and chart conflicts inform the final action."},
+            {"from": "intel", "to": "decision", "reason": "Catalysts and sentiment inform the final action."},
+            {"from": "risk", "to": "decision", "reason": "Risk can downgrade or veto bullish decisions."},
+            {"from": "portfolio", "to": "decision", "reason": "Portfolio exposure can change position sizing and urgency."},
+            {"from": "decision", "to": "paper_trading", "reason": "Only approved simulated actions should become paper-order preparation."},
+        ]
+
+        stage_summary = []
+        for op in ctx.opinions:
+            stage_summary.append({
+                "stage": op.agent_name,
+                "signal": op.signal,
+                "confidence": round(float(op.confidence), 4),
+                "reason": _truncate_text(op.reasoning, 180),
+            })
+
+        missing_nodes = [node["id"] for node in nodes if node["status"] == "missing"]
+        reasoning_gaps = []
+        if not data_sources:
+            reasoning_gaps.append("No structured input data was recorded in the agent context.")
+        if "intel" in missing_nodes:
+            reasoning_gaps.append("News, sentiment, or fundamentals were not confirmed by a completed intel stage.")
+        if "risk" in missing_nodes:
+            reasoning_gaps.append("Risk review was not confirmed by a completed risk stage.")
+
+        completed_statuses = {"available", "completed"}
+        completed_count = sum(1 for node in nodes if node["status"] in completed_statuses)
+        required_nodes = [node for node in nodes if node["status"] != "optional"]
+        required_completed_count = sum(1 for node in required_nodes if node["status"] in completed_statuses)
+        coverage = {
+            "completed_nodes": required_completed_count,
+            "total_nodes": len(required_nodes),
+            "ratio": round(required_completed_count / max(len(required_nodes), 1), 4),
+            "all_completed_nodes": completed_count,
+            "all_total_nodes": len(nodes),
+            "all_ratio": round(completed_count / len(nodes), 4),
+            "required_completed_nodes": required_completed_count,
+            "required_total_nodes": len(required_nodes),
+            "required_ratio": round(required_completed_count / max(len(required_nodes), 1), 4),
+            "missing_nodes": missing_nodes,
+        }
+
+        return {
+            "version": 1,
+            "nodes": nodes,
+            "edges": edges,
+            "data_sources": data_sources,
+            "tool_trace": tool_trace,
+            "tool_metrics": tool_metrics,
+            "stage_summary": stage_summary,
+            "coverage": coverage,
+            "reasoning_gaps": reasoning_gaps,
+        }
+
+    def _build_analysis_confidence(
+        self,
+        ctx: AgentContext,
+        base_confidence: float,
+        analysis_map: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Estimate confidence from agent conviction, coverage, tool health, and gaps."""
+        opinions = [float(op.confidence) for op in ctx.opinions]
+        agent_confidence = sum(opinions) / len(opinions) if opinions else float(base_confidence or 0.0)
+
+        coverage = analysis_map.get("coverage") if isinstance(analysis_map, dict) else {}
+        coverage_ratio = float(coverage.get("required_ratio") or coverage.get("ratio") or 0.0) if isinstance(coverage, dict) else 0.0
+        missing_nodes = coverage.get("missing_nodes") if isinstance(coverage, dict) else []
+        if not isinstance(missing_nodes, list):
+            missing_nodes = []
+
+        tool_trace = analysis_map.get("tool_trace") if isinstance(analysis_map, dict) else []
+        if not isinstance(tool_trace, list):
+            tool_trace = []
+        if tool_trace:
+            successful_tools = sum(1 for item in tool_trace if isinstance(item, dict) and item.get("success"))
+            tool_success_ratio = successful_tools / len(tool_trace)
+        else:
+            tool_success_ratio = 0.75
+
+        data_sources = analysis_map.get("data_sources") if isinstance(analysis_map, dict) else []
+        if not isinstance(data_sources, list):
+            data_sources = []
+        data_source_score = min(1.0, len(data_sources) / 3.0)
+
+        reasoning_gaps = analysis_map.get("reasoning_gaps") if isinstance(analysis_map, dict) else []
+        if not isinstance(reasoning_gaps, list):
+            reasoning_gaps = []
+        gap_penalty = min(0.25, 0.07 * len(reasoning_gaps))
+
+        high_risk = any(str(flag.get("severity", "")).lower() == "high" for flag in ctx.risk_flags)
+        risk_penalty = 0.15 if high_risk else (0.08 if ctx.risk_flags else 0.0)
+
+        raw_score = (
+            agent_confidence * 0.45
+            + coverage_ratio * 0.30
+            + tool_success_ratio * 0.20
+            + data_source_score * 0.05
+            - gap_penalty
+            - risk_penalty
+        )
+        score = max(0.0, min(1.0, raw_score))
+
+        warnings = []
+        warnings.extend(str(gap) for gap in reasoning_gaps if gap)
+        failed_tools = [
+            str(item.get("tool"))
+            for item in tool_trace
+            if isinstance(item, dict) and item.get("tool") and not item.get("success")
+        ]
+        if failed_tools:
+            warnings.append("Some tools failed: " + ", ".join(failed_tools[:5]))
+        if high_risk:
+            warnings.append("High-severity risk flags lowered confidence.")
+        elif ctx.risk_flags:
+            warnings.append("Risk flags lowered confidence.")
+
+        factors = [
+            {
+                "id": "agent_confidence",
+                "label": "Agent confidence",
+                "impact": round(agent_confidence, 4),
+                "weight": 0.45,
+                "reason": "Average confidence reported by participating agents.",
+            },
+            {
+                "id": "coverage",
+                "label": "Analysis coverage",
+                "impact": round(coverage_ratio, 4),
+                "weight": 0.30,
+                "reason": "Share of required analysis nodes that were completed.",
+            },
+            {
+                "id": "tool_success",
+                "label": "Tool success",
+                "impact": round(tool_success_ratio, 4),
+                "weight": 0.20,
+                "reason": "Ratio of successful tool calls in the recorded trace.",
+            },
+            {
+                "id": "data_sources",
+                "label": "Data sources",
+                "impact": round(data_source_score, 4),
+                "weight": 0.05,
+                "reason": "Breadth of structured inputs recorded in the context.",
+            },
+        ]
+
+        if gap_penalty:
+            factors.append({
+                "id": "reasoning_gaps",
+                "label": "Reasoning gaps",
+                "impact": round(-gap_penalty, 4),
+                "weight": 1.0,
+                "reason": "Missing analysis areas reduce confidence.",
+            })
+        if risk_penalty:
+            factors.append({
+                "id": "risk_penalty",
+                "label": "Risk penalty",
+                "impact": round(-risk_penalty, 4),
+                "weight": 1.0,
+                "reason": "Recorded risk flags reduce confidence.",
+            })
+
+        return {
+            "version": 1,
+            "score": round(score, 4),
+            "label": self._confidence_band(score),
+            "factors": factors,
+            "warnings": warnings,
+            "data_quality": {
+                "coverage_ratio": round(coverage_ratio, 4),
+                "tool_success_ratio": round(tool_success_ratio, 4),
+                "data_source_score": round(data_source_score, 4),
+                "missing_nodes": missing_nodes,
+                "reasoning_gap_count": len(reasoning_gaps),
+                "risk_flag_count": len(ctx.risk_flags),
+            },
+        }
+
+    @staticmethod
+    def _confidence_band(score: float) -> str:
+        if score >= 0.85:
+            return "high"
+        if score >= 0.45:
+            return "medium"
+        return "low"
+
+    @staticmethod
+    def _data_source_reason(key: str) -> str:
+        """Explain why a structured data source matters to the analysis."""
+        reasons = {
+            "realtime_quote": "Used to anchor the analysis to the latest price, volume, and intraday move.",
+            "daily_history": "Used to evaluate trend, support, resistance, and recent price behavior.",
+            "trend_result": "Used to summarize technical indicators and trend strength.",
+            "chip_distribution": "Used to inspect holder profit, cost concentration, and positioning risk.",
+            "news_context": "Used to check catalysts, sentiment, and headline risk.",
+            "fundamental_context": "Used to check earnings, valuation, quality, and business risk.",
+        }
+        return reasons.get(key, "Used as supporting context for the final decision.")
+
+    def _build_tool_trace(self, ctx: AgentContext) -> List[Dict[str, Any]]:
+        """Summarize executed tools with human-readable reasons."""
+        raw_calls = ctx.get_data("tool_calls_log") or []
+        if not isinstance(raw_calls, list):
+            return []
+
+        trace: List[Dict[str, Any]] = []
+        for call in raw_calls:
+            if not isinstance(call, dict):
+                continue
+            tool_name = str(call.get("tool") or "").strip()
+            if not tool_name:
+                continue
+            trace.append({
+                "step": call.get("step"),
+                "tool": tool_name,
+                "node": self._tool_analysis_node(tool_name),
+                "reason": self._tool_reason(tool_name, call.get("arguments")),
+                "arguments": call.get("arguments") if isinstance(call.get("arguments"), dict) else {},
+                "success": bool(call.get("success")),
+                "cached": bool(call.get("cached")),
+                "timeout": bool(call.get("timeout")),
+                "duration": call.get("duration"),
+            })
+        return trace
+
+    @staticmethod
+    def _build_tool_metrics(tool_trace: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Aggregate per-tool success, failure, timeout and duration metrics."""
+        by_tool: Dict[str, Dict[str, Any]] = {}
+        for item in tool_trace:
+            if not isinstance(item, dict):
+                continue
+            tool_name = str(item.get("tool") or "").strip()
+            if not tool_name:
+                continue
+            bucket = by_tool.setdefault(
+                tool_name,
+                {
+                    "tool": tool_name,
+                    "calls": 0,
+                    "success": 0,
+                    "failure": 0,
+                    "timeouts": 0,
+                    "cached": 0,
+                    "_duration_total": 0.0,
+                },
+            )
+            bucket["calls"] += 1
+            if item.get("success"):
+                bucket["success"] += 1
+            else:
+                bucket["failure"] += 1
+            if item.get("timeout"):
+                bucket["timeouts"] += 1
+            if item.get("cached"):
+                bucket["cached"] += 1
+            try:
+                bucket["_duration_total"] += float(item.get("duration") or 0.0)
+            except (TypeError, ValueError):
+                pass
+
+        tools = []
+        total_calls = 0
+        total_success = 0
+        total_duration = 0.0
+        for bucket in by_tool.values():
+            calls = int(bucket["calls"])
+            duration_total = float(bucket.pop("_duration_total", 0.0))
+            total_calls += calls
+            total_success += int(bucket["success"])
+            total_duration += duration_total
+            bucket["success_rate"] = round(bucket["success"] / max(calls, 1), 4)
+            bucket["failure_rate"] = round(bucket["failure"] / max(calls, 1), 4)
+            bucket["avg_duration"] = round(duration_total / max(calls, 1), 4)
+            tools.append(bucket)
+
+        tools.sort(key=lambda row: (-int(row["calls"]), str(row["tool"])))
+        return {
+            "version": 1,
+            "total_calls": total_calls,
+            "success": total_success,
+            "failure": total_calls - total_success,
+            "success_rate": round(total_success / max(total_calls, 1), 4) if total_calls else 0.0,
+            "avg_duration": round(total_duration / max(total_calls, 1), 4) if total_calls else 0.0,
+            "tools": tools,
+        }
+
+    @staticmethod
+    def _tool_analysis_node(tool_name: str) -> str:
+        lowered = tool_name.lower()
+        if "chart" in lowered:
+            return "chart"
+        if "portfolio" in lowered:
+            return "portfolio"
+        if "paper_order" in lowered or "paper" in lowered:
+            return "paper_trading"
+        if any(token in lowered for token in ("news", "intel", "search", "fundamental", "stock_info")):
+            return "intel"
+        if any(token in lowered for token in ("risk", "backtest")):
+            return "risk"
+        if any(token in lowered for token in ("quote", "history", "trend", "chip", "volume", "ma", "pattern")):
+            return "technical"
+        if any(token in lowered for token in ("market", "sector", "indices")):
+            return "data"
+        return "data"
+
+    @staticmethod
+    def _tool_reason(tool_name: str, arguments: Any) -> str:
+        """Explain why a tool was likely used based on its name and arguments."""
+        args = arguments if isinstance(arguments, dict) else {}
+        stock_code = args.get("stock_code") or args.get("code") or args.get("symbol")
+        suffix = f" for {stock_code}" if stock_code else ""
+
+        lowered = tool_name.lower()
+        if "realtime_quote" in lowered:
+            return f"Checked the latest quote{suffix} to anchor price, volume, and intraday movement."
+        if "daily_history" in lowered:
+            return f"Loaded daily history{suffix} to inspect trend, support, resistance, and volatility."
+        if "generate_chart_analysis" in lowered or "chart" in lowered:
+            return f"Generated chart analysis{suffix} to confirm visual trend, support/resistance, RSI/MACD state, and signal conflicts."
+        if "trend" in lowered or "ma" in lowered or "pattern" in lowered:
+            return f"Ran technical analysis{suffix} to evaluate trend strength and key levels."
+        if "chip" in lowered:
+            return f"Checked chip distribution{suffix} to estimate positioning pressure and holder profit."
+        if "news" in lowered or "search" in lowered or "intel" in lowered:
+            return f"Searched news and intelligence{suffix} to confirm catalysts, sentiment, and headline risk."
+        if "market" in lowered or "indices" in lowered or "sector" in lowered:
+            return "Checked market context to compare the stock against broader market conditions."
+        if "backtest" in lowered:
+            return f"Checked backtest context{suffix} to compare this signal with historical outcomes."
+        if "portfolio" in lowered:
+            account_id = args.get("account_id")
+            account_text = f" for account {account_id}" if account_id is not None else ""
+            return f"Checked portfolio snapshot{account_text} to align the answer with exposure, diversification, and risk limits."
+        if "prepare_paper_order" in lowered or "paper" in lowered:
+            side = args.get("side")
+            side_text = f" {side}" if side else ""
+            return f"Prepared a guarded paper{side_text} order{suffix} for approval, including risk checks and disabled broker execution."
+        return f"Used {tool_name} as supporting evidence for the analysis."
+
+    @staticmethod
+    def _tool_was_used(tool_trace: List[Dict[str, Any]], tool_name: str) -> bool:
+        return any(
+            isinstance(item, dict)
+            and str(item.get("tool") or "").lower() == tool_name.lower()
+            and bool(item.get("success"))
+            for item in tool_trace
+        )
 
     def _collect_key_levels(
         self,
@@ -1073,14 +1537,14 @@ class AgentOrchestrator:
             if not isinstance(bias, (int, float)):
                 return ""
             if bias > 5:
-                return "chaomai"
+                return "超买"
             elif bias > 2:
-                return "piangao"
+                return "偏高"
             elif bias < -5:
-                return "chaomai"
+                return "超卖"
             elif bias < -2:
-                return "piandi"
-            return "neutral"
+                return "偏低"
+            return "中性"
 
         def _r(val, n=2):
             """Round numeric values for display."""
@@ -1120,7 +1584,7 @@ class AgentOrchestrator:
                 "profit_ratio": chip.get("profit_ratio", "N/A"),
                 "avg_cost": chip.get("avg_cost", "N/A"),
                 "concentration": concentration if concentration is not None else "N/A",
-                "chip_health": chip.get("chip_health", "yiban"),
+                "chip_health": chip.get("chip_health", "一般"),
             }
 
         return data_perspective
@@ -1209,7 +1673,7 @@ class AgentOrchestrator:
     ) -> Dict[str, Any]:
         tagged = dict(dashboard)
         summary = _first_non_empty_text(tagged.get("analysis_summary"))
-        prefix = "[jiangjijieguo] "
+        prefix = "[降级结果] "
         if summary and not summary.startswith(prefix):
             tagged["analysis_summary"] = prefix + summary
         elif not summary:
@@ -1286,29 +1750,29 @@ class AgentOrchestrator:
 
         summary = dashboard.get("analysis_summary")
         if isinstance(summary, str) and summary:
-            dashboard["analysis_summary"] = f"[fengkongxiatiao: {current_signal} -> {new_signal}] {summary}"
+            dashboard["analysis_summary"] = f"[风控下调: {current_signal} -> {new_signal}] {summary}"
 
         dashboard_block = dashboard.get("dashboard")
         if isinstance(dashboard_block, dict):
             core = dashboard_block.get("core_conclusion")
             if isinstance(core, dict):
                 signal_type = {
-                    "buy": "?윞chiyouguanwang",
-                    "hold": "?윞chiyouguanwang",
-                    "sell": "?뵶maichuxinhao",
-                }.get(new_signal, "?좑툘fengxianjinggao")
+                    "buy": "🟡持有观望",
+                    "hold": "🟡持有观望",
+                    "sell": "🔴卖出信号",
+                }.get(new_signal, "⚠️风险警告")
                 core["signal_type"] = signal_type
                 sentence = core.get("one_sentence")
                 if isinstance(sentence, str) and sentence:
-                    core["one_sentence"] = f"{sentence} 리스크 통제로 판단을 낮췄습니다."
+                    core["one_sentence"] = f"{sentence}（风控下调）"
                 position = core.get("position_advice")
                 if isinstance(position, dict):
                     if new_signal == "hold":
-                        position["no_position"] = "리스크가 해소되기 전까지 관망하고 더 명확한 진입 조건을 기다리세요."
-                        position["has_position"] = "신중히 보유하되 손절선을 지키고 리스크 완화 후 추가 매수를 검토하세요."
+                        position["no_position"] = "风险未解除前先观望，等待更清晰的入场条件。"
+                        position["has_position"] = "谨慎持有并收紧止损，待风险缓解后再考虑加仓。"
                     elif new_signal == "sell":
-                        position["no_position"] = "리스크가 높으므로 신규 진입은 보류하세요."
-                        position["has_position"] = "우선 손실을 통제하고 비중 축소 또는 고위험 포지션 청산을 검토하세요."
+                        position["no_position"] = "风险明显偏高，暂不新开仓。"
+                        position["has_position"] = "优先控制回撤，建议减仓或退出高风险仓位。"
 
         ctx.set_data("final_dashboard", dashboard)
         ctx.set_data("risk_override_applied", {
@@ -1351,7 +1815,7 @@ class AgentOrchestrator:
             severity = str(flag.get("severity", "")).lower()
             if description:
                 warnings.append(f"[{severity or 'risk'}] {description}")
-        prefix = f"리스크 통제 개입: 이번 판단을 {signal}로 낮췄습니다."
+        prefix = f"风控接管：最终信号已下调为 {signal}。"
         merged = " ".join(dict.fromkeys([prefix] + warnings))
         return merged[:500]
 
@@ -1387,22 +1851,22 @@ _COMMON_WORDS: set[str] = {
 }
 
 _LOWERCASE_TICKER_HINTS = re.compile(
-    r"analysis|kankan|chayi?xia|yanjiu|zhenduan|zoushi|qushi|gujia|stock|gegu",
+    r"分析|看看|查一?下|研究|诊断|走势|趋势|股价|股票|个股",
 )
 
 
 def _extract_stock_code(text: str) -> str:
     """Best-effort stock code extraction from free text."""
-    # A-share 6-digit ??use lookarounds instead of \b because Python's \b
+    # A-share 6-digit — use lookarounds instead of \b because Python's \b
     # does not fire at Chinese-character / digit boundaries.
     m = re.search(r'(?<!\d)((?:[03648]\d{5}|92\d{4}))(?!\d)', text)
     if m:
         return m.group(1)
-    # HK ??same lookaround approach
+    # HK — same lookaround approach
     m = re.search(r'(?<![a-zA-Z])(hk\d{5})(?!\d)', text, re.IGNORECASE)
     if m:
         return m.group(1).upper()
-    # US ticker ??require 2+ uppercase letters bounded by non-alpha chars.
+    # US ticker — require 2+ uppercase letters bounded by non-alpha chars.
     m = re.search(r'(?<![a-zA-Z])([A-Z]{2,5}(?:\.[A-Z]{1,2})?)(?![a-zA-Z])', text)
     if m:
         candidate = m.group(1)
@@ -1452,48 +1916,48 @@ def _adjust_sentiment_score(score: int, signal: str) -> int:
 def _adjust_operation_advice(advice: str, signal: str) -> str:
     """Normalize action wording to the overridden decision signal."""
     mapping = {
-        "buy": "mairu",
-        "hold": "guanwang",
-        "sell": "jiancang/maichu",
+        "buy": "买入",
+        "hold": "观望",
+        "sell": "减仓/卖出",
     }
     if signal not in mapping:
         return advice
     if advice == mapping[signal]:
         return advice
-    return f"{mapping[signal]}(원래 의견은 리스크 통제로 낮춰졌습니다)"
+    return f"{mapping[signal]}（原建议已被风控下调）"
 
 
 def _signal_to_operation(signal: str) -> str:
     mapping = {
-        "buy": "mairu",
-        "hold": "guanwang",
-        "sell": "jiancang/maichu",
+        "buy": "买入",
+        "hold": "观望",
+        "sell": "减仓/卖出",
     }
-    return mapping.get(signal, "guanwang")
+    return mapping.get(signal, "观望")
 
 
 def _signal_to_signal_type(signal: str) -> str:
     mapping = {
-        "buy": "?윟mairuxinhao",
-        "hold": "?챚uanwangxinhao",
-        "sell": "?뵶maichuxinhao",
+        "buy": "🟢买入信号",
+        "hold": "⚪观望信号",
+        "sell": "🔴卖出信号",
     }
-    return mapping.get(signal, "?챚uanwangxinhao")
+    return mapping.get(signal, "⚪观望信号")
 
 
 def _default_position_advice(signal: str) -> Dict[str, str]:
     mapping = {
         "buy": {
-            "no_position": "지지 구간을 참고해 분할 진입하고 일시적인 추격 매수는 피하세요.",
-            "has_position": "계속 보유하되 핵심 지지선이 깨지지 않을 때만 추가 매수를 검토하세요.",
+            "no_position": "可结合支撑位分批试仓，避免一次性追高。",
+            "has_position": "可继续持有，回踩关键位不破再考虑加仓。",
         },
         "hold": {
-            "no_position": "추격 매수는 보류하고 더 명확한 진입 조건을 기다리세요.",
-            "has_position": "관찰을 우선하고 손절선 이탈 시 리스크 관리를 실행하세요.",
+            "no_position": "暂不追高，等待更清晰的入场条件。",
+            "has_position": "以观察为主，跌破止损位再执行风控。",
         },
         "sell": {
-            "no_position": "당분간 참여하지 말고 리스크가 충분히 해소될 때까지 기다리세요.",
-            "has_position": "우선 손실을 통제하고 계획에 따라 비중 축소 또는 이탈을 검토하세요.",
+            "no_position": "暂不参与，等待风险充分释放。",
+            "has_position": "优先控制回撤，按计划减仓或离场。",
         },
     }
     return mapping.get(signal, mapping["hold"])
@@ -1501,11 +1965,11 @@ def _default_position_advice(signal: str) -> Dict[str, str]:
 
 def _default_position_size(signal: str) -> str:
     mapping = {
-        "buy": "qingcangshicang",
-        "hold": "kongzhicangwei",
-        "sell": "jiangcangfangshou",
+        "buy": "轻仓试仓",
+        "hold": "控制仓位",
+        "sell": "降仓防守",
     }
-    return mapping.get(signal, "kongzhicangwei")
+    return mapping.get(signal, "控制仓位")
 
 
 def _normalize_operation_advice_value(value: Any, signal: str) -> str:
@@ -1516,10 +1980,10 @@ def _normalize_operation_advice_value(value: Any, signal: str) -> str:
 
 def _confidence_label(confidence: float) -> str:
     if confidence >= 0.75:
-        return "gao"
+        return "高"
     if confidence >= 0.45:
-        return "zhong"
-    return "di"
+        return "中"
+    return "低"
 
 
 def _estimate_sentiment_score(signal: str, confidence: float) -> int:
@@ -1538,8 +2002,8 @@ def _coerce_level_value(value: Any) -> Any:
         return None
     if isinstance(value, (int, float)):
         return round(float(value), 2)
-    text = str(value).replace(",", "").replace("%", "").strip()
-    if not text or text.upper() == "N/A" or text in {"-", "--"}:
+    text = str(value).replace(",", "").replace("，", "").strip()
+    if not text or text.upper() == "N/A" or text in {"-", "—"}:
         return None
     try:
         return round(float(text), 2)
@@ -1576,7 +2040,7 @@ def _truncate_text(text: Any, limit: int) -> str:
     value = str(text or "").strip()
     if len(value) <= limit:
         return value
-    return value[: max(0, limit - 1)].rstrip() + "..."
+    return value[: max(0, limit - 1)].rstrip() + "…"
 
 
 def _extract_latest_news_title(intelligence: Dict[str, Any]) -> str:
@@ -1591,4 +2055,3 @@ def _extract_latest_news_title(intelligence: Dict[str, Any]) -> str:
     if isinstance(latest_news, str) and latest_news.strip():
         return latest_news.strip()
     return ""
-

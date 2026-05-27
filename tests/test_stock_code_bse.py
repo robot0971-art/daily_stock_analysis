@@ -99,14 +99,21 @@ class TestNormalizeStockCode(unittest.TestCase):
         self.assertEqual(normalize_stock_code("bj920748"), "920748")
 
     def test_hk_suffix_normalized_to_canonical_prefix(self):
-        """ganggu .HK houzhuigeshiyingguiyiwei HK+5 weishuzi。"""
+        """港股 .HK 后缀格式应归一为 HK+5 位数字。"""
         self.assertEqual(normalize_stock_code("1810.HK"), "HK01810")
         self.assertEqual(normalize_stock_code("0700.hk"), "HK00700")
 
     def test_hk_prefix_is_zero_padded(self):
-        """HK qianzhuideduanshuzigeshiyingbuzudao 5 wei,bianyuhouxuhuancunyuquzhong。"""
+        """HK 前缀的短数字格式应补足到 5 位，便于后续缓存与去重。"""
         self.assertEqual(normalize_stock_code("hk1810"), "HK01810")
         self.assertEqual(normalize_stock_code("HK700"), "HK00700")
+
+    def test_kr_suffix_and_prefix_are_preserved_for_krx(self):
+        """KRX symbols should not be stripped into A-share-like 6 digit codes."""
+        self.assertEqual(normalize_stock_code("005930.KS"), "005930.KS")
+        self.assertEqual(normalize_stock_code("091990.KQ"), "091990.KQ")
+        self.assertEqual(normalize_stock_code("KR005930"), "005930.KS")
+        self.assertEqual(normalize_stock_code("KQ091990"), "091990.KQ")
 
 
 @unittest.skipIf(not _TUSHARE_IMPORTS_OK, f"tushare fetcher imports failed: {_TUSHARE_IMPORT_ERROR}")

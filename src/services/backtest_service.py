@@ -14,7 +14,7 @@ from src.config import get_config
 from src.core.backtest_engine import OVERALL_SENTINEL_CODE, BacktestEngine, EvaluationConfig
 from src.repositories.backtest_repo import BacktestRepository
 from src.repositories.stock_repo import StockRepository
-from src.storage import BacktestResult, BacktestSummary, DatabaseManager
+from src.storage import AnalysisHistory, BacktestResult, BacktestSummary, DatabaseManager
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +180,7 @@ class BacktestService:
 
             except Exception as exc:
                 errors += 1
-                logger.error(f"huitestbai: {analysis.code}#{analysis.id}: {exc}")
+                logger.error(f"回测失败: {analysis.code}#{analysis.id}: {exc}")
                 results_to_save.append(
                     BacktestResult(
                         analysis_history_id=analysis.id,
@@ -341,7 +341,7 @@ class BacktestService:
             return parsed
         if getattr(analysis, "created_at", None):
             return analysis.created_at.date()
-        logger.warning(f"wufaquedinganalysisriqi(chinese removed)똳iaoguorecord: {analysis.code}#{getattr(analysis, 'id', '?')}")
+        logger.warning(f"无法确定分析日期，跳过记录: {analysis.code}#{getattr(analysis, 'id', '?')}")
         return None
 
     def _try_fill_daily_data(self, *, code: str, analysis_date: date, eval_window_days: int) -> None:
@@ -361,7 +361,7 @@ class BacktestService:
                 return
             self.db.save_daily_data(df, code=code, data_source=source)
         except Exception as exc:
-            logger.warning(f"buquanrixianshujushibai({code}): {exc}")
+            logger.warning(f"补全日线数据失败({code}): {exc}")
 
     def _recompute_summaries(self, *, touched_codes: List[str], eval_window_days: int, engine_version: str) -> None:
         with self.db.get_session() as session:
@@ -381,6 +381,7 @@ class BacktestService:
                 eval_window_days=eval_window_days,
                 engine_version=engine_version,
             )
+            self._attach_performance_diagnostics(session, overall_data, overall_rows)
             overall_summary = self._build_summary_model(overall_data)
             self.repo.upsert_summary(overall_summary)
 
@@ -401,6 +402,7 @@ class BacktestService:
                     eval_window_days=eval_window_days,
                     engine_version=engine_version,
                 )
+                self._attach_performance_diagnostics(session, data, rows)
                 summary = self._build_summary_model(data)
                 self.repo.upsert_summary(summary)
 
@@ -504,6 +506,155 @@ class BacktestService:
         }
 
     @staticmethod
+    def _attach_performance_diagnostics(session: Any, summary_data: Dict[str, Any], rows: List[BacktestResult]) -> None:
+        diagnostics = dict(summary_data.get("diagnostics") or {})
+        diagnostics["performance_tracking"] = BacktestService._build_performance_tracking(session, rows)
+        summary_data["diagnostics"] = diagnostics
+
+    @staticmethod
+    def _build_performance_tracking(session: Any, rows: List[BacktestResult]) -> Dict[str, Any]:
+        completed = [row for row in rows if (row.eval_status or "") == "completed"]
+        if not completed:
+            return {
+                "confidence_buckets": {},
+                "risk_warning_effectiveness": {
+                    "flagged_count": 0,
+                    "flagged_downside_count": 0,
+                    "precision_pct": None,
+                },
+                "benchmark": {
+                    "status": "unavailable",
+                    "reason": "Benchmark series is not linked to backtest results yet.",
+                },
+            }
+
+        raw_by_analysis_id = BacktestService._load_raw_results_for_rows(session, completed)
+        buckets: Dict[str, List[BacktestResult]] = {}
+        flagged_rows: List[BacktestResult] = []
+        for row in completed:
+            raw = raw_by_analysis_id.get(row.analysis_history_id, {})
+            bucket = BacktestService._confidence_bucket(raw)
+            buckets.setdefault(bucket, []).append(row)
+            if BacktestService._has_risk_warning(raw):
+                flagged_rows.append(row)
+
+        flagged_downside = [
+            row for row in flagged_rows
+            if BacktestService._is_downside_outcome(row)
+        ]
+        precision = (
+            round(len(flagged_downside) / len(flagged_rows) * 100.0, 2)
+            if flagged_rows
+            else None
+        )
+        return {
+            "confidence_buckets": {
+                name: BacktestService._bucket_metrics(items)
+                for name, items in sorted(buckets.items())
+            },
+            "risk_warning_effectiveness": {
+                "flagged_count": len(flagged_rows),
+                "flagged_downside_count": len(flagged_downside),
+                "precision_pct": precision,
+            },
+            "benchmark": {
+                "status": "unavailable",
+                "reason": "Benchmark series is not linked to backtest results yet.",
+            },
+        }
+
+    @staticmethod
+    def _load_raw_results_for_rows(session: Any, rows: List[BacktestResult]) -> Dict[int, Dict[str, Any]]:
+        ids = sorted({row.analysis_history_id for row in rows if row.analysis_history_id is not None})
+        if not ids:
+            return {}
+        records = session.execute(
+            select(AnalysisHistory.id, AnalysisHistory.raw_result).where(AnalysisHistory.id.in_(ids))
+        ).all()
+        parsed: Dict[int, Dict[str, Any]] = {}
+        for record_id, raw_result in records:
+            parsed[int(record_id)] = BacktestService._parse_raw_result(raw_result)
+        return parsed
+
+    @staticmethod
+    def _parse_raw_result(raw_result: Any) -> Dict[str, Any]:
+        if isinstance(raw_result, dict):
+            return raw_result
+        if isinstance(raw_result, str) and raw_result.strip():
+            try:
+                parsed = json.loads(raw_result)
+                return parsed if isinstance(parsed, dict) else {}
+            except Exception:
+                return {}
+        return {}
+
+    @staticmethod
+    def _confidence_bucket(raw_result: Dict[str, Any]) -> str:
+        confidence = raw_result.get("analysis_confidence")
+        if isinstance(confidence, dict):
+            label = str(confidence.get("label") or "").strip().lower()
+            if label in {"high", "medium", "low"}:
+                return label
+            score = confidence.get("score")
+            try:
+                value = float(score)
+                if value >= 0.75:
+                    return "high"
+                if value >= 0.45:
+                    return "medium"
+                return "low"
+            except (TypeError, ValueError):
+                pass
+
+        label = str(raw_result.get("confidence_level") or "").strip().lower()
+        if label in {"高", "high"}:
+            return "high"
+        if label in {"低", "low"}:
+            return "low"
+        return "medium"
+
+    @staticmethod
+    def _has_risk_warning(raw_result: Dict[str, Any]) -> bool:
+        risk_warning = str(raw_result.get("risk_warning") or "").strip()
+        if risk_warning:
+            return True
+        stock_risk = raw_result.get("stock_risk_report")
+        if isinstance(stock_risk, dict) and stock_risk.get("flags"):
+            return True
+        return False
+
+    @staticmethod
+    def _is_downside_outcome(row: BacktestResult) -> bool:
+        try:
+            if row.stock_return_pct is not None and float(row.stock_return_pct) < 0:
+                return True
+        except (TypeError, ValueError):
+            pass
+        return bool(row.hit_stop_loss)
+
+    @staticmethod
+    def _bucket_metrics(rows: List[BacktestResult]) -> Dict[str, Any]:
+        win = sum(1 for row in rows if (row.outcome or "") == "win")
+        loss = sum(1 for row in rows if (row.outcome or "") == "loss")
+        neutral = sum(1 for row in rows if (row.outcome or "") == "neutral")
+        denom = win + loss
+        direction_rows = [row for row in rows if row.direction_correct is not None]
+        return {
+            "total": len(rows),
+            "win": win,
+            "loss": loss,
+            "neutral": neutral,
+            "win_rate_pct": round(win / denom * 100.0, 2) if denom else None,
+            "direction_accuracy_pct": (
+                round(sum(1 for row in direction_rows if row.direction_correct) / len(direction_rows) * 100.0, 2)
+                if direction_rows
+                else None
+            ),
+            "avg_stock_return_pct": BacktestEngine._average([row.stock_return_pct for row in rows]),
+            "avg_simulated_return_pct": BacktestEngine._average([row.simulated_return_pct for row in rows]),
+        }
+
+    @staticmethod
     def _normalize_learning_summary(summary: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """Normalize summary metrics to the ratio-based shape expected by Agent memory."""
         if summary is None:
@@ -594,4 +745,3 @@ class BacktestService:
         summary["code"] = None if summary.get("code") == OVERALL_SENTINEL_CODE else summary.get("code")
         summary["computed_at"] = datetime.now().isoformat()
         return summary
-

@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 ===================================
-Bot Webhook 처리기
+Bot Webhook handler
 ===================================
 
-각 플랫포의 Webhook 콜백을 처리하고, 명령 처리기에 분배합니다.
+Handles platform Webhook callbacks and dispatches them to command handlers.
 """
 
 import asyncio
@@ -22,19 +22,28 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Platform instance cache.
 _platform_instances: Dict[str, 'BotPlatform'] = {}
 
 
 def get_platform(platform_name: str) -> Optional['BotPlatform']:
     """
-Daily Stock Analysis - Handler
-"""
+    Get platform adapter instance.
+
+    Uses a cache to avoid duplicate creation.
+
+    Args:
+        platform_name: Platform name.
+
+    Returns:
+        Platform adapter instance, or None.
+    """
     if platform_name not in _platform_instances:
         platform_class = ALL_PLATFORMS.get(platform_name)
         if platform_class:
             _platform_instances[platform_name] = platform_class()
         else:
-            logger.warning(f"[BotHandler] 알 수 없는 플랫폼: {platform_name}")
+            logger.warning(f"[BotHandler] Unknown platform: {platform_name}")
             return None
 
     return _platform_instances[platform_name]
@@ -47,39 +56,54 @@ def handle_webhook(
     query_params: Optional[Dict[str, list]] = None
 ) -> WebhookResponse:
     """
-Daily Stock Analysis - Handler
-"""
-    logger.info(f"[BotHandler] 수신 {platform_name} Webhook 요청")
+    Handle Webhook request.
 
-    # 봇 기능 활성화 여부 확인
+    Unified entry point for all platform Webhooks.
+
+    Args:
+        platform_name: Platform name. (feishu, dingtalk, wecom, telegram)
+        headers: HTTP headers.
+        body: Raw request body bytes.
+        query_params: URL query parameters for platform verification.
+
+    Returns:
+        WebhookResponse object.
+    """
+    logger.info(f"[BotHandler] Received {platform_name} Webhook request")
+
+    # Check whether bot functionality is enabled.
     from src.config import get_config
     config = get_config()
 
     if not getattr(config, 'bot_enabled', True):
-        logger.info("[BotHandler] 봇 기능 비활성화됨")
+        logger.info("[BotHandler] Bot feature is disabled")
         return WebhookResponse.success()
 
+    # Get platform adapter.
     platform = get_platform(platform_name)
     if not platform:
         return WebhookResponse.error(f"Unknown platform: {platform_name}", 400)
 
+    # Parse JSON payload.
     try:
         data = json.loads(body.decode('utf-8')) if body else {}
     except json.JSONDecodeError as e:
-        logger.error(f"[BotHandler] JSON 파싱 실패: {e}")
+        logger.error(f"[BotHandler] JSON parse failed: {e}")
         return WebhookResponse.error("Invalid JSON", 400)
 
-    logger.debug(f"[BotHandler] 요청 데이터: {json.dumps(data, ensure_ascii=False)[:500]}")
+    logger.debug(f"[BotHandler] Request data: {json.dumps(data, ensure_ascii=False)[:500]}")
 
-    # Webhook 처리
+    # Handle Webhook.
     message, immediate_response = platform.handle_webhook(headers, body, data)
 
+    # Return directly for verification/error responses with no message to process.
     if immediate_response and not message:
-        logger.info("[BotHandler] 검증 응답 반환")
+        logger.info("[BotHandler] Returning verification response")
         return immediate_response
 
+    # Delayed response, such as Discord type 5: return ACK immediately and process the command in the background.
     if immediate_response and message:
-        logger.info("[BotHandler] 지연 ACK 반환, 백그라운드 명령 처리")
+        logger.info("[BotHandler] Returning delayed ACK and processing command in background")
 
         def _deferred_dispatch() -> None:
             try:
@@ -88,22 +112,23 @@ Daily Stock Analysis - Handler
                 if response.text:
                     platform.send_followup(response, message)
             except Exception as exc:
-                logger.error("[BotHandler] 지연 명령 처리 실패: %s", exc)
+                logger.error("[BotHandler] Delayed command processing failed: %s", exc)
 
         threading.Thread(target=_deferred_dispatch, daemon=True).start()
         return immediate_response
 
+    # Return an empty response when no message needs processing.
     if not message:
-        logger.debug("[BotHandler] 처리 불필요한 메시지")
+        logger.debug("[BotHandler] No message to process")
         return WebhookResponse.success()
 
-    logger.info(f"[BotHandler] 메시지 수신: user={message.user_name}, content={message.content[:50]}")
+    logger.info(f"[BotHandler] Parsed message: user={message.user_name}, content={message.content[:50]}")
 
-    # 명령 처리기에 분배
+    # Dispatch to command handler.
     dispatcher = get_dispatcher()
     response = dispatcher.dispatch(message)
 
-    # 응답 포맷팅
+    # Format response.
     if response.text:
         webhook_response = platform.format_response(response, message)
         return webhook_response
@@ -122,13 +147,13 @@ async def handle_webhook_async(
     Preferred when called from an async context (e.g. FastAPI endpoint)
     to avoid blocking the event loop.
     """
-    logger.info(f"[BotHandler] 수신 {platform_name} Webhook 요청 (async)")
+    logger.info(f"[BotHandler] Received {platform_name} Webhook request (async)")
 
     from src.config import get_config
     config = get_config()
 
     if not getattr(config, 'bot_enabled', True):
-        logger.info("[BotHandler] 봇 기능 비활성화됨")
+        logger.info("[BotHandler] Bot feature is disabled")
         return WebhookResponse.success()
 
     platform = get_platform(platform_name)
@@ -138,19 +163,19 @@ async def handle_webhook_async(
     try:
         data = json.loads(body.decode('utf-8')) if body else {}
     except json.JSONDecodeError as e:
-        logger.error(f"[BotHandler] JSON 파싱 실패: {e}")
+        logger.error(f"[BotHandler] JSON parse failed: {e}")
         return WebhookResponse.error("Invalid JSON", 400)
 
-    logger.debug(f"[BotHandler] 요청 데이터: {json.dumps(data, ensure_ascii=False)[:500]}")
+    logger.debug(f"[BotHandler] Request data: {json.dumps(data, ensure_ascii=False)[:500]}")
 
     message, immediate_response = platform.handle_webhook(headers, body, data)
 
     if immediate_response and not message:
-        logger.info("[BotHandler] 검증 응답 반환")
+        logger.info("[BotHandler] Returning verification response")
         return immediate_response
 
     if immediate_response and message:
-        logger.info("[BotHandler] 지연 ACK 반환, 백그라운드 명령 처리 (async)")
+        logger.info("[BotHandler] Returning delayed ACK and processing command in background (async)")
 
         async def _deferred_dispatch() -> None:
             try:
@@ -159,16 +184,16 @@ async def handle_webhook_async(
                 if response.text:
                     await asyncio.to_thread(platform.send_followup, response, message)
             except Exception as exc:
-                logger.error("[BotHandler] 지연 명령 처리 실패: %s", exc)
+                logger.error("[BotHandler] Delayed command processing failed: %s", exc)
 
         asyncio.ensure_future(_deferred_dispatch())
         return immediate_response
 
     if not message:
-        logger.debug("[BotHandler] 처리 불필요한 메시지")
+        logger.debug("[BotHandler] No message to process")
         return WebhookResponse.success()
 
-    logger.info(f"[BotHandler] 메시지 수신: user={message.user_name}, content={message.content[:50]}")
+    logger.info(f"[BotHandler] Parsed message: user={message.user_name}, content={message.content[:50]}")
 
     dispatcher = get_dispatcher()
     response = await dispatcher.dispatch_async(message)
@@ -181,20 +206,20 @@ async def handle_webhook_async(
 
 
 def handle_feishu_webhook(headers: Dict[str, str], body: bytes) -> WebhookResponse:
-    """Feishu 처리 Webhook"""
+    """Handle Feishu Webhook."""
     return handle_webhook('feishu', headers, body)
 
 
 def handle_dingtalk_webhook(headers: Dict[str, str], body: bytes) -> WebhookResponse:
-    """DingTalk 처리 Webhook"""
+    """Handle DingTalk Webhook."""
     return handle_webhook('dingtalk', headers, body)
 
 
 def handle_wecom_webhook(headers: Dict[str, str], body: bytes) -> WebhookResponse:
-    """WeCom 처리 Webhook"""
+    """Handle WeCom Webhook."""
     return handle_webhook('wecom', headers, body)
 
 
 def handle_telegram_webhook(headers: Dict[str, str], body: bytes) -> WebhookResponse:
-    """(pinyin removed) Telegram Webhook"""
+    """Handle Telegram Webhook."""
     return handle_webhook('telegram', headers, body)

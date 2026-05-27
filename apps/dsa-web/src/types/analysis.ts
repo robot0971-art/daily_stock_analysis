@@ -29,6 +29,7 @@ export interface MarketReviewAccepted {
   status: 'accepted';
   message: string;
   sendNotification: boolean;
+  traceId?: string;
   taskId?: string;
 }
 
@@ -52,21 +53,16 @@ export interface ReportMeta {
 
 /** Sentiment label */
 export type SentimentLabel =
-  | 'ZH_VERY_BEARISH'
-  | 'ZH_BEARISH'
-  | 'ZH_NEUTRAL'
-  | 'ZH_BULLISH'
-  | 'ZH_VERY_BULLISH'
+  | '매우 약세'
+  | '약세'
+  | '중립'
+  | '강세'
+  | '매우 강세'
   | 'Very Bearish'
   | 'Bearish'
   | 'Neutral'
   | 'Bullish'
-  | 'Very Bullish'
-  | '매우 비관'
-  | '비관'
-  | '중립'
-  | '낙관'
-  | '매우 낙관';
+  | 'Very Bullish';
 
 /** Report summary section */
 export interface ReportSummary {
@@ -101,6 +97,34 @@ export interface SectorRankings {
   bottom?: SectorRankingItem[];
 }
 
+export interface ChartAnalysisReport {
+  version?: number;
+  status?: string;
+  reason?: string;
+  latestClose?: number;
+  support?: number;
+  resistance?: number;
+  pattern?: Record<string, unknown>;
+  patternLabel?: string;
+  visualSignal?: string;
+  visualSignalLabel?: string;
+  indicatorSignal?: string;
+  indicatorSignalLabel?: string;
+  conflicts?: Array<Record<string, unknown>>;
+}
+
+export interface EventMonitoringReport {
+  version?: number;
+  status?: string;
+  reason?: string;
+  monitoringPriority?: string;
+  priorityScore?: number;
+  thesisBreakRisk?: boolean;
+  topEvents?: Array<Record<string, unknown>>;
+  watchItems?: string[];
+  monitoringGaps?: string[];
+}
+
 /** Details section */
 export interface ReportDetails {
   newsContent?: string;
@@ -110,6 +134,116 @@ export interface ReportDetails {
   dividendMetrics?: Record<string, unknown>;
   belongBoards?: RelatedBoard[];
   sectorRankings?: SectorRankings;
+  chartAnalysisReport?: ChartAnalysisReport;
+  eventMonitoringReport?: EventMonitoringReport;
+}
+
+export interface AnalysisMapNode {
+  id: string;
+  label: string;
+  role: string;
+  status: 'available' | 'completed' | 'missing' | string;
+  reason?: string;
+}
+
+export interface AnalysisMapEdge {
+  from: string;
+  to: string;
+  reason?: string;
+}
+
+export interface AnalysisMapDataSource {
+  id: string;
+  label: string;
+  available: boolean;
+  kind?: string;
+  reason?: string;
+}
+
+export interface AnalysisMapToolTrace {
+  step?: number | string | null;
+  tool: string;
+  node?: string;
+  reason?: string;
+  arguments?: Record<string, unknown>;
+  success?: boolean;
+  cached?: boolean;
+  timeout?: boolean;
+  duration?: number | null;
+}
+
+export interface AnalysisMapToolMetric {
+  tool: string;
+  calls: number;
+  success: number;
+  failure: number;
+  timeouts?: number;
+  cached?: number;
+  successRate?: number;
+  failureRate?: number;
+  avgDuration?: number;
+}
+
+export interface AnalysisMapToolMetrics {
+  version: number;
+  totalCalls: number;
+  success: number;
+  failure: number;
+  successRate: number;
+  avgDuration: number;
+  tools: AnalysisMapToolMetric[];
+}
+
+export interface AnalysisMapStageSummary {
+  stage: string;
+  signal?: string;
+  confidence?: number;
+  reason?: string;
+}
+
+export interface AnalysisMapCoverage {
+  completedNodes: number;
+  totalNodes: number;
+  ratio: number;
+  missingNodes: string[];
+}
+
+export interface AnalysisMap {
+  version: number;
+  nodes: AnalysisMapNode[];
+  edges: AnalysisMapEdge[];
+  dataSources: AnalysisMapDataSource[];
+  toolTrace: AnalysisMapToolTrace[];
+  toolMetrics?: AnalysisMapToolMetrics;
+  stageSummary: AnalysisMapStageSummary[];
+  coverage: AnalysisMapCoverage;
+  reasoningGaps: string[];
+}
+
+export interface AnalysisConfidenceFactor {
+  id: string;
+  label: string;
+  impact: number;
+  weight: number;
+  reason?: string;
+}
+
+export interface AnalysisConfidenceDataQuality {
+  coverageRatio: number;
+  toolSuccessRatio: number;
+  dataSourceScore: number;
+  missingNodes: string[];
+  reasoningGapCount: number;
+  riskFlagCount: number;
+}
+
+export interface AnalysisConfidence {
+  version: number;
+  score: number;
+  label: 'high' | 'medium' | 'low' | string;
+  factors: AnalysisConfidenceFactor[];
+  warnings: string[];
+  dataQuality: AnalysisConfidenceDataQuality;
 }
 
 /** Full analysis report */
@@ -118,28 +252,65 @@ export interface AnalysisReport {
   summary: ReportSummary;
   strategy?: ReportStrategy;
   details?: ReportDetails;
+  analysisMap?: AnalysisMap;
+  analysisConfidence?: AnalysisConfidence;
 }
 
 // ============ Analysis Result Types ============
 
+export type RunDiagnosticStatus = 'normal' | 'degraded' | 'failed' | 'unknown';
+
+export type RunDiagnosticComponentStatus =
+  | 'ok'
+  | 'degraded'
+  | 'failed'
+  | 'unknown'
+  | 'not_configured'
+  | 'skipped';
+
+export interface RunDiagnosticComponent {
+  key: string;
+  label: string;
+  status: RunDiagnosticComponentStatus;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
+export interface RunDiagnosticSummary {
+  traceId?: string;
+  taskId?: string;
+  queryId?: string;
+  stockCode?: string;
+  triggerSource?: string;
+  status: RunDiagnosticStatus;
+  statusLabel: string;
+  reason: string;
+  components: Record<string, RunDiagnosticComponent>;
+  copyText: string;
+}
+
 /** Sync analysis response */
 export interface AnalysisResult {
   queryId: string;
+  traceId?: string;
   stockCode: string;
   stockName: string;
   report: AnalysisReport;
+  diagnosticSummary?: RunDiagnosticSummary;
   createdAt: string;
 }
 
 /** Async task accepted response */
 export interface TaskAccepted {
   taskId: string;
+  traceId?: string;
   status: 'pending' | 'processing';
   message?: string;
 }
 
 export interface BatchTaskAcceptedItem {
   taskId: string;
+  traceId?: string;
   stockCode: string;
   status: 'pending' | 'processing';
   message?: string;
@@ -164,6 +335,7 @@ export type AnalyzeResponse = AnalysisResult | AnalyzeAsyncResponse;
 /** Task status */
 export interface TaskStatus {
   taskId: string;
+  traceId?: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress?: number;
   result?: AnalysisResult;
@@ -178,6 +350,7 @@ export interface TaskStatus {
 /** Task details used by task list and SSE events */
 export interface TaskInfo {
   taskId: string;
+  traceId?: string;
   stockCode: string;
   stockName?: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -217,6 +390,8 @@ export interface HistoryItem {
   stockCode: string;
   stockName?: string;
   reportType?: ReportType;
+  reportLanguage?: ReportLanguage;
+  isLegacy?: boolean;
   sentimentScore?: number;
   operationAdvice?: string;
   createdAt: string;
@@ -267,7 +442,7 @@ export interface ApiError {
 // ============ Helper Functions ============
 
 /** Get sentiment label by score */
-export const getSentimentLabel = (score: number, language: ReportLanguage = 'zh'): SentimentLabel => {
+export const getSentimentLabel = (score: number, language: ReportLanguage = 'ko'): SentimentLabel => {
   if (language === 'en') {
     if (score <= 20) return 'Very Bearish';
     if (score <= 40) return 'Bearish';
@@ -275,18 +450,12 @@ export const getSentimentLabel = (score: number, language: ReportLanguage = 'zh'
     if (score <= 80) return 'Bullish';
     return 'Very Bullish';
   }
-  if (language === 'ko') {
-    if (score <= 20) return '매우 비관';
-    if (score <= 40) return '비관';
-    if (score <= 60) return '중립';
-    if (score <= 80) return '낙관';
-    return '매우 낙관';
-  }
-  if (score <= 20) return 'ZH_VERY_BEARISH';
-  if (score <= 40) return 'ZH_BEARISH';
-  if (score <= 60) return 'ZH_NEUTRAL';
-  if (score <= 80) return 'ZH_BULLISH';
-  return 'ZH_VERY_BULLISH';
+
+  if (score <= 20) return '매우 약세';
+  if (score <= 40) return '약세';
+  if (score <= 60) return '중립';
+  if (score <= 80) return '강세';
+  return '매우 강세';
 };
 
 /** Get sentiment color by score */

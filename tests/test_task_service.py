@@ -23,13 +23,13 @@ from src.services.task_service import TaskService
 def _make_failed_result(code: str) -> AnalysisResult:
     return AnalysisResult(
         code=code,
-        name=f"gupiao{code}",
+        name=f"종목{code}",
         sentiment_score=80,
-        trend_prediction="kanduo",
-        operation_advice="chiyou",
-        analysis_summary="jiexishibai",
+        trend_prediction="상승",
+        operation_advice="보유",
+        analysis_summary="분석 실패",
         success=False,
-        error_message="JSON jiexishibai",
+        error_message="JSON 분석 실패",
     )
 
 
@@ -57,15 +57,13 @@ class TestTaskService(unittest.TestCase):
             result = service._run_analysis(code="600519", task_id="task-1")
 
         self.assertFalse(result["success"])
-        self.assertEqual(result["error"], "JSON jiexishibai")
+        self.assertEqual(result["error"], "JSON 분석 실패")
         task = service.get_task_status("task-1")
         self.assertIsNotNone(task)
         self.assertEqual(task["status"], "failed")
-        self.assertEqual(task["error"], "JSON jiexishibai")
+        self.assertEqual(task["error"], "JSON 분석 실패")
         self.assertIsNone(task["result"])
 
 
 if __name__ == "__main__":
-    import unittest
-
     unittest.main()

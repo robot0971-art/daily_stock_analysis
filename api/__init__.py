@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Daily Stock Analysis -   Init  
+API 패키지 초기화.
+
+역할:
+1. API 모듈의 공용 인터페이스를 노출합니다.
+2. API 패키지 버전을 한 곳에서 관리합니다.
 """
 
+__version__ = "1.0.0"

@@ -40,13 +40,45 @@ function testVariant(result: AlertRuleTestResponse): 'success' | 'warning' | 'da
   return result.triggered ? 'success' : 'warning';
 }
 
+function renderTestResultMessage(result: AlertRuleTestResponse): React.ReactNode {
+  const targetResults = result.targetResults ?? [];
+  return (
+    <div className="space-y-2">
+      <div>
+        {result.message}
+        {' · 상태: '}
+        {result.status}
+        {' · 트리거: '}
+        {result.triggered ? '예' : '아니오'}
+        {' · 관측값: '}
+        {result.observedValue == null ? '--' : String(result.observedValue)}
+      </div>
+      {result.evaluatedCount != null && result.evaluatedCount > 1 ? (
+        <div className="text-xs">
+          평가 {result.evaluatedCount} · 트리거 {result.triggeredCount ?? 0} · 저하 {result.degradedCount ?? 0} · 건너뜀 {result.skippedCount ?? 0}
+        </div>
+      ) : null}
+      {targetResults.length > 1 ? (
+        <div className="grid gap-1 text-xs">
+          {targetResults.slice(0, 20).map((item) => (
+            <div key={`${item.target}-${item.status}`} className="flex flex-wrap justify-between gap-2">
+              <span>{item.displayTarget ?? item.target}</span>
+              <span>{item.recordStatus ? `${item.status} / ${item.recordStatus}` : item.status}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const notificationChannelLabel: Record<string, string> = {
-  __cooldown__: '업무 쿨다운',
+  __cooldown__: '쿨다운',
   __cooldown_read_failed__: '쿨다운 읽기 실패',
   __noise_suppressed__: '알림 노이즈 억제',
-  __no_channel__: '사용 가능한 채널 없음',
-  __dispatch__: '알림 디스패치',
-  __context__: '세션 채널',
+  __no_channel__: '채널 없음',
+  __dispatch__: '알림 발송',
+  __context__: '컨텍스트',
 };
 
 function formatNotificationChannel(channel: string): string {
@@ -55,16 +87,16 @@ function formatNotificationChannel(channel: string): string {
 
 function formatNotificationStatus(notification: AlertNotificationItem): string {
   if (notification.success) return '성공';
-  if (notification.errorCode === 'cooldown_active') return '쿨다운 억제';
+  if (notification.errorCode === 'cooldown_active') return '쿨다운 중';
   if (notification.errorCode === 'cooldown_read_failed') return '쿨다운 읽기 실패';
-  if (notification.errorCode === 'noise_suppressed') return '노이즈 억제';
+  if (notification.errorCode === 'noise_suppressed') return '억제됨';
   if (notification.errorCode === 'no_channel') return '채널 없음';
   return '실패';
 }
 
 const AlertsPage: React.FC = () => {
   useEffect(() => {
-    document.title = '알림 필터 - DSA';
+    document.title = '알림 센터 - DSA';
   }, []);
 
   const [rules, setRules] = useState<AlertRuleItem[]>([]);
@@ -75,15 +107,12 @@ const AlertsPage: React.FC = () => {
   const [rulesLoading, setRulesLoading] = useState(false);
   const [rulesError, setRulesError] = useState<ParsedApiError | null>(null);
   const [rulesLoaded, setRulesLoaded] = useState(false);
-
   const [triggers, setTriggers] = useState<AlertTriggerItem[]>([]);
   const [triggersLoading, setTriggersLoading] = useState(false);
   const [triggersError, setTriggersError] = useState<ParsedApiError | null>(null);
-
   const [notifications, setNotifications] = useState<AlertNotificationItem[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState<ParsedApiError | null>(null);
-
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<ParsedApiError | null>(null);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
@@ -123,9 +152,7 @@ const AlertsPage: React.FC = () => {
       setRulesError(getParsedApiError(error));
       return null;
     } finally {
-      if (isLatestRequest()) {
-        setRulesLoading(false);
-      }
+      if (isLatestRequest()) setRulesLoading(false);
     }
   }, [alertTypeFilter, enabledFilter, rulesPage]);
 
@@ -185,11 +212,8 @@ const AlertsPage: React.FC = () => {
   const handleToggleEnabled = async (rule: AlertRuleItem) => {
     setBusyRule({ id: rule.id, action: 'toggle' });
     try {
-      if (rule.enabled) {
-        await alertsApi.disableRule(rule.id);
-      } else {
-        await alertsApi.enableRule(rule.id);
-      }
+      if (rule.enabled) await alertsApi.disableRule(rule.id);
+      else await alertsApi.enableRule(rule.id);
       await loadRules();
     } catch (error) {
       setRulesError(getParsedApiError(error));
@@ -227,8 +251,8 @@ const AlertsPage: React.FC = () => {
     <AppPage className="space-y-5">
       <PageHeader
         eyebrow="Alert Center"
-        title="알림 필터"
-        description="여러 이벤트 알림 규칙을 관리하고 조회합니다. 테스트를 실행하며 백그라운드 평가 작업의 트리거 기록을 확인합니다."
+        title="알림 센터"
+        description="이벤트 알림과 포트폴리오 규칙을 관리하고 테스트 실행 결과를 확인합니다."
       />
 
       {createError ? <ApiErrorAlert error={createError} onDismiss={() => setCreateError(null)} /> : null}
@@ -237,11 +261,7 @@ const AlertsPage: React.FC = () => {
           title="생성 성공"
           message={createSuccess}
           variant="success"
-          action={(
-            <button type="button" className="text-sm underline" onClick={() => setCreateSuccess(null)}>
-              닫기
-            </button>
-          )}
+          action={<button type="button" className="text-sm underline" onClick={() => setCreateSuccess(null)}>닫기</button>}
         />
       ) : null}
       {rulesError ? <ApiErrorAlert error={rulesError} onDismiss={() => setRulesError(null)} /> : null}
@@ -276,17 +296,7 @@ const AlertsPage: React.FC = () => {
             <InlineAlert
               title="테스트 결과"
               variant={testVariant(testResult)}
-              message={(
-                <span>
-                  {testResult.message}
-                  {' · 상태: '}
-                  {testResult.status}
-                  {' · 트리거: '}
-                  {testResult.triggered ? '예' : '아니오'}
-                  {' · 관측값: '}
-                  {testResult.observedValue == null ? '--' : String(testResult.observedValue)}
-                </span>
-              )}
+              message={renderTestResultMessage(testResult)}
             />
           ) : null}
         </div>
@@ -296,13 +306,13 @@ const AlertsPage: React.FC = () => {
       <AlertTriggerHistory triggers={triggers} isLoading={triggersLoading} />
 
       {notificationsError ? <ApiErrorAlert error={notificationsError} onDismiss={() => setNotificationsError(null)} /> : null}
-      <Card title="알림 시도 기록" subtitle="알림 결과" variant="bordered" padding="md">
+      <Card title="알림 시도 기록" subtitle="최근 알림 발송 결과" variant="bordered" padding="md">
         {notificationsLoading ? <Loading label="알림 시도 기록을 불러오는 중" /> : null}
         {!notificationsLoading && notifications.length === 0 ? (
           <EmptyState
             icon={<BellRing className="h-6 w-6" />}
             title="알림 시도 기록 없음"
-            description="현재 표시할 알림 시도 상세가 없습니다. 알림이 트리거되면 설정된 알림 채널로 전송합니다."
+            description="알림이 트리거되면 설정된 채널로 발송한 결과가 여기에 표시됩니다."
           />
         ) : null}
         {!notificationsLoading && notifications.length > 0 ? (
@@ -313,7 +323,7 @@ const AlertsPage: React.FC = () => {
                   <th className="px-3 py-2 font-medium">채널</th>
                   <th className="px-3 py-2 font-medium">상태</th>
                   <th className="px-3 py-2 font-medium">오류 코드</th>
-                  <th className="px-3 py-2 font-medium">소요 시간</th>
+                  <th className="px-3 py-2 font-medium">지연</th>
                   <th className="px-3 py-2 font-medium">시간</th>
                   <th className="px-3 py-2 font-medium">진단</th>
                 </tr>

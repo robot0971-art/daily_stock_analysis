@@ -69,13 +69,13 @@ class _TrackingNotifier:
 def _make_result(code: str, success: bool = True) -> AnalysisResult:
     return AnalysisResult(
         code=code,
-        name=f"gupiao{code}",
+        name=f"股票{code}",
         sentiment_score=80,
-        trend_prediction="kanduo",
-        operation_advice="chiyou",
-        analysis_summary="ceshijieguo",
+        trend_prediction="看多",
+        operation_advice="持有",
+        analysis_summary="测试结果",
         success=success,
-        error_message=None if success else "JSONjiexishibai",
+        error_message=None if success else "JSON解析失败",
     )
 
 
@@ -155,6 +155,50 @@ class TestPipelineSingleStockNotify(unittest.TestCase):
             dedup_key="report:single:600519:brief",
             cooldown_key="report:single:600519:brief",
         )
+
+    def test_process_single_stock_updates_saved_diagnostics_after_notification(self):
+        pipeline = StockAnalysisPipeline.__new__(StockAnalysisPipeline)
+        pipeline.fetch_and_save_stock_data = MagicMock(return_value=(True, None))
+        pipeline.analyze_stock = MagicMock(return_value=_make_result("600519"))
+        pipeline.notifier = _TrackingNotifier()
+        pipeline.db = MagicMock()
+        pipeline.save_context_snapshot = True
+
+        pipeline.process_single_stock(
+            code="600519",
+            skip_analysis=False,
+            single_stock_notify=True,
+            report_type=ReportType.SIMPLE,
+            analysis_query_id="query-1",
+        )
+
+        pipeline.db.update_analysis_history_diagnostics.assert_called_once()
+        kwargs = pipeline.db.update_analysis_history_diagnostics.call_args.kwargs
+        self.assertEqual(kwargs["query_id"], "query-1")
+        self.assertEqual(kwargs["code"], "600519")
+        self.assertEqual(kwargs["diagnostics"]["query_id"], "query-1")
+        self.assertEqual(kwargs["diagnostics"]["notification_runs"][-1]["status"], "success")
+
+    def test_send_notifications_patches_saved_diagnostics_when_push_is_skipped(self):
+        pipeline = StockAnalysisPipeline.__new__(StockAnalysisPipeline)
+        pipeline.save_context_snapshot = True
+        pipeline.db = MagicMock()
+        pipeline.config = SimpleNamespace(stock_email_groups=[])
+        pipeline.notifier = MagicMock()
+        pipeline.notifier.generate_aggregate_report.return_value = "report"
+        results = [_make_result("000001"), _make_result("600519")]
+        for index, result in enumerate(results):
+            result.query_id = f"query-{index}"
+
+        pipeline._send_notifications(results, ReportType.SIMPLE, skip_push=True)
+
+        self.assertEqual(pipeline.db.update_analysis_history_diagnostics.call_count, 2)
+        calls = pipeline.db.update_analysis_history_diagnostics.call_args_list
+        self.assertEqual(calls[0].kwargs["query_id"], "query-0")
+        self.assertEqual(calls[0].kwargs["code"], "000001")
+        self.assertEqual(calls[0].kwargs["notification_runs"][0]["status"], "skipped")
+        self.assertEqual(calls[1].kwargs["query_id"], "query-1")
+        self.assertEqual(calls[1].kwargs["code"], "600519")
 
     def test_process_single_stock_direct_path_does_not_notify_when_failed(self):
         pipeline = StockAnalysisPipeline.__new__(StockAnalysisPipeline)

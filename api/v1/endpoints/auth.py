@@ -218,7 +218,7 @@ async def auth_update_settings(request: Request, body: AuthSettingsRequest):
                     status_code=400,
                     content={
                         "error": "password_already_set",
-                        "message": "관리자 비밀번호가 이미 설정되어 있습니다. 인증을 켠 뒤 비밀번호 변경 기능을 사용하세요.",
+                        "message": "관리자 비밀번호가 이미 있습니다. 인증을 활성화한 뒤 비밀번호 변경 기능으로 업데이트하세요.",
                     },
                 )
             if not password:
@@ -236,7 +236,7 @@ async def auth_update_settings(request: Request, body: AuthSettingsRequest):
                     status_code=400,
                     content={
                         "error": "password_already_set",
-                        "message": "관리자 비밀번호가 이미 설정되어 있습니다. 인증을 켠 뒤 비밀번호 변경 기능을 사용하세요.",
+                        "message": "관리자 비밀번호가 이미 있습니다. 인증을 활성화한 뒤 비밀번호 변경 기능으로 업데이트하세요.",
                     },
                 )
             err = set_initial_password(password)
@@ -248,7 +248,7 @@ async def auth_update_settings(request: Request, body: AuthSettingsRequest):
         elif not stored_password_exists:
             return JSONResponse(
                 status_code=400,
-                content={"error": "password_required", "message": "kaiqipassworddengluqianqingxianshezhipassword"},
+                content={"error": "password_required", "message": "비밀번호 로그인을 켜기 전에 먼저 비밀번호를 설정하세요."},
             )
         else:
             # P1 Vulnerability Fix: Enforce current-password check independent of global cached flag
@@ -258,12 +258,12 @@ async def auth_update_settings(request: Request, body: AuthSettingsRequest):
             cookie_val = request.cookies.get(COOKIE_NAME)
             # if target_enabled is True here, they are requesting to enable or keep auth enabled
             is_valid_session = cookie_val and verify_session(cookie_val)
-            
+
             if not is_valid_session:
                 if not current_password:
                     return JSONResponse(
                         status_code=400,
-                        content={"error": "current_required", "message": "인증을 다시 켜려면 현재 비밀번호를 입력하세요."},
+                        content={"error": "current_required", "message": "인증을 다시 켜기 전에 현재 비밀번호를 입력하세요."},
                     )
                 ip = get_client_ip(request)
                 if not check_rate_limit(ip):
@@ -278,7 +278,7 @@ async def auth_update_settings(request: Request, body: AuthSettingsRequest):
                     record_login_failure(ip)
                     return JSONResponse(
                         status_code=401,
-                        content={"error": "invalid_password", "message": "dangqianpasswordcuowu"},
+                        content={"error": "invalid_password", "message": "현재 비밀번호가 올바르지 않습니다."},
                     )
                 clear_rate_limit(ip)
     else:
@@ -290,7 +290,7 @@ async def auth_update_settings(request: Request, body: AuthSettingsRequest):
                 if not current_password:
                     return JSONResponse(
                         status_code=400,
-                        content={"error": "current_required", "message": "인증을 끄려면 현재 비밀번호를 입력하세요."},
+                        content={"error": "current_required", "message": "인증을 끄기 전에 현재 비밀번호를 입력하세요."},
                     )
                 ip = get_client_ip(request)
                 if not check_rate_limit(ip):
@@ -305,7 +305,7 @@ async def auth_update_settings(request: Request, body: AuthSettingsRequest):
                     record_login_failure(ip)
                     return JSONResponse(
                         status_code=401,
-                        content={"error": "invalid_password", "message": "dangqianpasswordcuowu"},
+                        content={"error": "invalid_password", "message": "현재 비밀번호가 올바르지 않습니다."},
                     )
                 clear_rate_limit(ip)
 
@@ -407,7 +407,7 @@ async def auth_login(request: Request, body: LoginRequest):
             record_login_failure(ip)
             return JSONResponse(
                 status_code=401,
-                content={"error": "invalid_password", "message": "passwordcuowu"},
+                content={"error": "invalid_password", "message": "비밀번호가 올바르지 않습니다."},
             )
 
     clear_rate_limit(ip)
@@ -475,4 +475,3 @@ async def auth_logout(request: Request):
     resp = Response(status_code=204)
     resp.delete_cookie(key=COOKIE_NAME, path="/")
     return resp
-

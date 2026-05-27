@@ -1,4 +1,10 @@
----
-# README_CHT.md
+# Archived Language Page
 
-This file has been removed. Please refer to [English README](README_EN.md) or [Korean README](../README.md).
+This page used to contain a Traditional Chinese README. The project documentation is now maintained primarily in Korean, with selected English documents kept for compatibility.
+
+Use these entry points instead:
+
+- [Korean README](../README.md)
+- [Korean documentation index](INDEX.md)
+- [English README](README_EN.md)
+- [English documentation index](INDEX_EN.md)

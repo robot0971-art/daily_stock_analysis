@@ -4,6 +4,8 @@ import { ReportOverview } from './ReportOverview';
 import { ReportStrategy } from './ReportStrategy';
 import { ReportNews } from './ReportNews';
 import { ReportDetails } from './ReportDetails';
+import { ReportAgentTrace } from './ReportAgentTrace';
+import { ReportDiagnostics } from './ReportDiagnostics';
 import { getReportText, normalizeReportLanguage } from '../../utils/reportLanguage';
 
 interface ReportSummaryProps {
@@ -11,14 +13,13 @@ interface ReportSummaryProps {
   isHistory?: boolean;
 }
 
-/**
- */
 export const ReportSummary: React.FC<ReportSummaryProps> = ({
   data,
   isHistory = false,
 }) => {
   const report: AnalysisReport = 'report' in data ? data.report : data;
   const recordId = report.meta.id;
+  const diagnosticSummary = 'diagnosticSummary' in data ? data.diagnosticSummary : undefined;
 
   const { meta, summary, strategy, details } = report;
   const reportLanguage = normalizeReportLanguage(meta.reportLanguage);
@@ -35,6 +36,18 @@ export const ReportSummary: React.FC<ReportSummaryProps> = ({
         summary={summary}
         details={details}
         isHistory={isHistory}
+      />
+
+      <ReportDiagnostics
+        recordId={recordId}
+        summary={diagnosticSummary}
+        language={reportLanguage}
+      />
+
+      <ReportAgentTrace
+        analysisMap={report.analysisMap}
+        analysisConfidence={report.analysisConfidence}
+        details={details}
       />
 
       <ReportStrategy strategy={strategy} language={reportLanguage} />

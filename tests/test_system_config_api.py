@@ -236,7 +236,7 @@ class SystemConfigApiTestCase(unittest.TestCase):
         run_warning = next(
             warning
             for warning in payload["warnings"]
-            if "RUN_IMMEDIATELY yixieru .env" in warning
+            if "RUN_IMMEDIATELY 값이 .env에 저장되었습니다" in warning
         )
         schedule_warning = next(
             warning
@@ -244,11 +244,11 @@ class SystemConfigApiTestCase(unittest.TestCase):
             if "SCHEDULE_RUN_IMMEDIATELY" in warning
         )
 
-        self.assertIn("fei schedule moshi", run_warning)
-        self.assertNotIn("yi schedule moshi", run_warning)
-        self.assertIn("buhuiyinweibencibaocunqidong,tingzhihuochongjian scheduler", schedule_warning)
-        self.assertIn("yi schedule moshichongxinqidonghoushengxiao", schedule_warning)
-        self.assertNotIn("tashuyuqidongqidanciyunxingpeizhi", schedule_warning)
+        self.assertIn("비 schedule 모드", run_warning)
+        self.assertNotIn("schedule 모드로 다시 시작", run_warning)
+        self.assertIn("이번 저장만으로 scheduler를 시작, 중지 또는 재생성하지 않습니다", schedule_warning)
+        self.assertIn("schedule 모드로 다시 시작해야 적용됩니다", schedule_warning)
+        self.assertNotIn("단회 실행 설정", schedule_warning)
 
     def test_put_config_returns_schedule_time_runtime_rebind_warning(self) -> None:
         current = system_config.get_system_config(include_schema=False, service=self.service).model_dump()
@@ -267,13 +267,13 @@ class SystemConfigApiTestCase(unittest.TestCase):
         schedule_time_warning = next(
             warning
             for warning in payload["warnings"]
-            if "SCHEDULE_TIME=09:30 yixieru .env" in warning
+            if "SCHEDULE_TIME=09:30 값이 .env에 저장되었습니다" in warning
         )
 
-        self.assertIn("yijingyi schedule moshiyunxing", schedule_time_warning)
-        self.assertIn("zidongchongjian daily job", schedule_time_warning)
-        self.assertIn("buhuiqidong scheduler", schedule_time_warning)
-        self.assertNotIn("chongqidangqianjincheng", schedule_time_warning)
+        self.assertIn("schedule 모드로 실행 중", schedule_time_warning)
+        self.assertIn("daily job을 자동 재생성", schedule_time_warning)
+        self.assertIn("scheduler를 시작하지 않습니다", schedule_time_warning)
+        self.assertNotIn("재시작", schedule_time_warning)
 
     def test_export_system_config_returns_raw_env_content(self) -> None:
         self.env_path.write_text(
@@ -625,7 +625,7 @@ class SystemConfigApiTestCase(unittest.TestCase):
                 request=TestNotificationChannelRequest(
                     channel="wechat",
                     items=[{"key": "WECHAT_WEBHOOK_URL", "value": "https://example.com/hook"}],
-                    title="DSA tongzhiceshi",
+                    title="DSA 通知测试",
                     content="hello",
                     timeout_seconds=5,
                 ),
@@ -643,7 +643,7 @@ class SystemConfigApiTestCase(unittest.TestCase):
         ntfy_request = TestNotificationChannelRequest(
             channel="ntfy",
             items=[{"key": "NTFY_URL", "value": "https://ntfy.sh/dsa-topic"}],
-            title="DSA tongzhiceshi",
+            title="DSA 通知测试",
             content="hello",
             timeout_seconds=5,
         )
@@ -653,7 +653,7 @@ class SystemConfigApiTestCase(unittest.TestCase):
                 {"key": "GOTIFY_URL", "value": "https://gotify.example"},
                 {"key": "GOTIFY_TOKEN", "value": "app-token"},
             ],
-            title="DSA tongzhiceshi",
+            title="DSA 通知测试",
             content="hello",
             timeout_seconds=5,
         )

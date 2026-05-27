@@ -94,6 +94,34 @@ class _FakeRiskService:
         }
 
 
+class _FakeAnalysisService:
+    def __init__(self, **_kwargs):
+        pass
+
+    def analyze(self, **_kwargs):
+        return {
+            "as_of": "2026-03-15",
+            "currency": "CNY",
+            "total_market_value": 50000.0,
+            "position_count": 2,
+            "exposure": {
+                "markets": [{"market": "cn", "market_value_base": 50000.0, "weight_pct": 100.0}],
+                "currencies": [{"currency": "CNY", "market_value_base": 50000.0, "weight_pct": 100.0}],
+            },
+            "diversification": {"score": 72.5, "level": "watch", "warnings": ["Market exposure is concentrated."]},
+            "rebalance_suggestions": ["Review trimming 600519."],
+        }
+
+    def build_report_summary(self, analysis):
+        return {
+            "version": 1,
+            "status": "ok",
+            "diversification_level": analysis["diversification"]["level"],
+            "top_market": analysis["exposure"]["markets"][0],
+            "rebalance_suggestions": analysis["rebalance_suggestions"],
+        }
+
+
 class TestGetPortfolioSnapshotTool(unittest.TestCase):
     @patch("src.services.portfolio_service.PortfolioService", _FakePortfolioService)
     @patch("src.services.portfolio_risk_service.PortfolioRiskService", _FakeRiskService)
@@ -109,6 +137,19 @@ class TestGetPortfolioSnapshotTool(unittest.TestCase):
         self.assertNotIn("positions", account)
         self.assertEqual(account["position_count"], 2)
         self.assertEqual(account["top_positions"][0]["symbol"], "600519")
+
+    @patch("src.services.portfolio_service.PortfolioService", _FakePortfolioService)
+    @patch("src.services.portfolio_risk_service.PortfolioRiskService", _FakeRiskService)
+    @patch("src.services.portfolio_analysis_service.PortfolioAnalysisService", _FakeAnalysisService)
+    def test_include_analysis(self) -> None:
+        result = _handle_get_portfolio_snapshot(account_id=1, include_analysis=True)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["analysis"]["status"], "ok")
+        self.assertEqual(result["analysis"]["diversification"]["level"], "watch")
+        self.assertIn("rebalance_suggestions", result["analysis"])
+        self.assertEqual(result["analysis_summary"]["status"], "ok")
+        self.assertEqual(result["analysis_summary"]["diversification_level"], "watch")
+        self.assertIn("rebalance_suggestions", result["analysis_summary"])
 
     @patch("src.services.portfolio_service.PortfolioService", _FakePortfolioService)
     @patch("src.services.portfolio_risk_service.PortfolioRiskService", _FakeRiskService)

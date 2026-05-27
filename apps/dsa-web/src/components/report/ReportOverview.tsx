@@ -4,7 +4,7 @@ import type {
   ReportMeta,
   ReportSummary as ReportSummaryType,
 } from '../../types/analysis';
-import { Badge, Card, ScoreGauge } from '../common';
+import { Card, ScoreGauge } from '../common';
 import { formatDateTime } from '../../utils/format';
 import { localizeLegacyText } from '../../utils/legacyKoreanText';
 import { getReportText, normalizeReportLanguage } from '../../utils/reportLanguage';
@@ -15,61 +15,6 @@ interface ReportOverviewProps {
   details?: ReportDetailsType;
   isHistory?: boolean;
 }
-
-type BoardStatus = 'leading' | 'lagging';
-
-type BoardSignal = {
-  status: BoardStatus;
-  changePct?: number;
-};
-
-const normalizeBoardName = (value?: string): string =>
-  (value || '').trim().replace(/\s+/g, ' ');
-
-const coerceFiniteNumber = (value: unknown): number | undefined => {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : undefined;
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim().replace(/%$/, '');
-    if (!trimmed) {
-      return undefined;
-    }
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-  return undefined;
-};
-
-const buildBoardSignalMap = (details?: ReportDetailsType): Map<string, BoardSignal> => {
-  const signalMap = new Map<string, BoardSignal>();
-  const topBoards = Array.isArray(details?.sectorRankings?.top) ? details.sectorRankings.top : [];
-  const bottomBoards = Array.isArray(details?.sectorRankings?.bottom) ? details.sectorRankings.bottom : [];
-
-  topBoards.forEach((item) => {
-    const normalizedName = normalizeBoardName(item?.name);
-    if (!normalizedName) {
-      return;
-    }
-    signalMap.set(normalizedName, {
-      status: 'leading',
-      changePct: coerceFiniteNumber(item.changePct),
-    });
-  });
-
-  bottomBoards.forEach((item) => {
-    const normalizedName = normalizeBoardName(item?.name);
-    if (!normalizedName) {
-      return;
-    }
-    signalMap.set(normalizedName, {
-      status: 'lagging',
-      changePct: coerceFiniteNumber(item.changePct),
-    });
-  });
-
-  return signalMap;
-};
 
 /**
  */
@@ -84,10 +29,6 @@ export const ReportOverview: React.FC<ReportOverviewProps> = ({
   const displaySummary = localizeLegacyText(summary.analysisSummary);
   const displayAdvice = localizeLegacyText(summary.operationAdvice);
   const displayTrend = localizeLegacyText(summary.trendPrediction);
-  const relatedBoards = (Array.isArray(details?.belongBoards) ? details.belongBoards : [])
-    .filter((board) => normalizeBoardName(board?.name).length > 0)
-    .slice(0, 3);
-  const boardSignals = buildBoardSignalMap(details);
 
   const getPriceChangeStyle = (changePct: number | undefined): React.CSSProperties | undefined => {
     if (changePct === undefined || changePct === null) {
@@ -105,25 +46,42 @@ export const ReportOverview: React.FC<ReportOverviewProps> = ({
     return undefined;
   };
 
+  const normalizeChangePct = (changePct: unknown): number | undefined => {
+    if (typeof changePct === 'number' && Number.isFinite(changePct)) {
+      return changePct;
+    }
+    if (typeof changePct === 'string') {
+      const parsed = Number.parseFloat(changePct.replace('%', '').trim());
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+  };
+
   const formatChangePct = (changePct: number | undefined): string => {
     if (changePct === undefined || changePct === null) return '--';
     const sign = changePct > 0 ? '+' : '';
     return `${sign}${changePct.toFixed(2)}%`;
   };
 
-  const getBoardStatusLabel = (status: BoardStatus): string => {
-    if (status === 'leading') {
-      return text.leadingBoard;
-    }
-    return text.laggingBoard;
-  };
+  const relatedBoards = (details?.belongBoards ?? [])
+    .map((board) => ({
+      ...board,
+      name: localizeLegacyText((board.name ?? '').trim()),
+      type: board.type ? localizeLegacyText(board.type.trim()) : undefined,
+    }))
+    .filter((board) => board.name);
 
-  const getBoardStatusVariant = (status: BoardStatus): 'success' | 'danger' => {
-    if (status === 'leading') {
-      return 'success';
-    }
-    return 'danger';
-  };
+  const topRankings = Array.isArray(details?.sectorRankings?.top)
+    ? details.sectorRankings.top
+    : [];
+  const bottomRankings = Array.isArray(details?.sectorRankings?.bottom)
+    ? details.sectorRankings.bottom
+    : [];
+  const rankingItems = [
+    ...topRankings.map((item) => ({ ...item, tone: 'leading' as const })),
+    ...bottomRankings.map((item) => ({ ...item, tone: 'lagging' as const })),
+  ].filter((item) => item.name);
+  const hasBoardLinkage = relatedBoards.length > 0 || rankingItems.length > 0;
 
   return (
     <div className="space-y-5">
@@ -215,47 +173,40 @@ export const ReportOverview: React.FC<ReportOverviewProps> = ({
             </Card>
           </div>
 
-          {relatedBoards.length > 0 && (
-            <Card variant="bordered" padding="sm" className="home-panel-card text-left">
-              <div className="mb-3 flex items-baseline gap-2">
-                <span className="label-uppercase">{text.boardLinkage}</span>
-                <h3 className="mt-0.5 text-base font-semibold text-foreground">{text.relatedBoards}</h3>
+          {hasBoardLinkage && (
+            <Card variant="bordered" padding="md" className="home-panel-card">
+              <div className="mb-3 flex items-baseline justify-between gap-3">
+                <div>
+                  <span className="label-uppercase">{text.boardLinkage}</span>
+                  <h3 className="mt-1 text-base font-semibold text-foreground">{text.relatedBoards}</h3>
+                </div>
               </div>
 
-              <div className="space-y-2.5">
-                {relatedBoards.map((board, index) => {
-                  const boardName = normalizeBoardName(board.name);
-                  const signal = boardSignals.get(boardName);
+              <div className="flex flex-wrap gap-2">
+                {relatedBoards.map((board) => (
+                  <span
+                    key={`${board.name}-${board.type ?? ''}`}
+                    className="rounded-lg border border-border bg-surface/50 px-3 py-1.5 text-sm text-foreground"
+                  >
+                    {board.name}
+                    {board.type && (
+                      <span className="ml-2 text-xs text-muted-text">{board.type}</span>
+                    )}
+                  </span>
+                ))}
+                {rankingItems.map((item) => {
+                  const label = item.tone === 'leading' ? text.leadingBoard : text.laggingBoard;
+                  const pctValue = normalizeChangePct(item.changePct);
+                  const pct = pctValue !== undefined ? formatChangePct(pctValue) : undefined;
                   return (
-                    <div
-                      key={`${boardName}-${board.code || index}`}
-                      className="flex flex-wrap items-center gap-2 text-sm"
+                    <span
+                      key={`${item.tone}-${item.name}-${pct ?? ''}`}
+                      className="rounded-lg border border-border bg-surface/50 px-3 py-1.5 text-sm text-foreground"
                     >
-                      <span className="home-accent-chip px-2 py-0.5 text-xs font-medium">
-                        {boardName}
-                      </span>
-                      {board.type && (
-                        <span className="home-board-pill rounded-full px-2 py-0.5 text-xs">
-                          {board.type}
-                        </span>
-                      )}
-                      {signal && (
-                        <Badge
-                          variant={getBoardStatusVariant(signal.status)}
-                          className="home-board-status-badge shadow-none"
-                        >
-                          {getBoardStatusLabel(signal.status)}
-                        </Badge>
-                      )}
-                      {signal && signal.changePct !== undefined && signal.changePct !== null && (
-                        <span
-                          className="text-xs font-mono"
-                          style={getPriceChangeStyle(signal.changePct)}
-                        >
-                          {formatChangePct(signal.changePct)}
-                        </span>
-                      )}
-                    </div>
+                      <span className="font-medium">{localizeLegacyText(item.name.trim())}</span>
+                      <span className="ml-2 text-xs text-muted-text">{label}</span>
+                      {pct && <span className="ml-2 font-mono text-xs">{pct}</span>}
+                    </span>
                   );
                 })}
               </div>

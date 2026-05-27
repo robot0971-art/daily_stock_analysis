@@ -26,6 +26,7 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showResetHistoryConfirm, setShowResetHistoryConfirm] = useState(false);
   const [isSubmittingMarketReview, setIsSubmittingMarketReview] = useState(false);
   const [marketReviewNotice, setMarketReviewNotice] = useState<MarketReviewNotice>(null);
   const [marketReviewError, setMarketReviewError] = useState<ParsedApiError | null>(null);
@@ -90,12 +91,14 @@ const HomePage: React.FC = () => {
     toggleHistorySelection,
     toggleSelectAllVisible,
     deleteSelectedHistory,
+    resetHistory,
     submitAnalysis,
     notify,
     setNotify,
     syncTaskCreated,
     syncTaskUpdated,
     syncTaskFailed,
+    refreshActiveTasks,
     removeTask,
     openMarkdownDrawer,
     closeMarkdownDrawer,
@@ -281,12 +284,13 @@ const HomePage: React.FC = () => {
     const requiredNeedsAction = setupStatus.checks
       .filter((check) => check.required && check.status === 'needs_action')
       .map((check) => check.title);
-    return requiredNeedsAction.slice(0, 3).join('、');
+    return requiredNeedsAction.slice(0, 3).join(', ');
   }, [setupStatus]);
 
   useDashboardLifecycle({
     loadInitialHistory,
     refreshHistory,
+    refreshActiveTasks,
     syncTaskCreated,
     syncTaskUpdated,
     syncTaskFailed,
@@ -500,6 +504,11 @@ const HomePage: React.FC = () => {
     setShowDeleteConfirm(false);
   }, [deleteSelectedHistory]);
 
+  const handleResetHistory = useCallback(() => {
+    void resetHistory();
+    setShowResetHistoryConfirm(false);
+  }, [resetHistory]);
+
   const sidebarContent = useMemo(
     () => (
       <div className="flex min-h-0 h-full flex-col gap-3 overflow-hidden">
@@ -517,6 +526,7 @@ const HomePage: React.FC = () => {
           onToggleItemSelection={toggleHistorySelection}
           onToggleSelectAll={toggleSelectAllVisible}
           onDeleteSelected={() => setShowDeleteConfirm(true)}
+          onResetHistory={() => setShowResetHistoryConfirm(true)}
           className="flex-1 overflow-hidden"
         />
       </div>
@@ -562,7 +572,7 @@ const HomePage: React.FC = () => {
                   onSubmit={(stockCode, stockName, selectionSource) => {
                     handleSubmitAnalysis(stockCode, stockName, selectionSource);
                   }}
-                  placeholder="종목 코드나 이름을 입력하세요. 예: KR005930, AAPL"
+                  placeholder="종목 코드나 이름을 입력하세요. 예: 005930.KS, 091990.KQ, AAPL"
                   disabled={isAnalyzing}
                   className={inputError ? 'border-danger/50' : undefined}
                 />
@@ -866,6 +876,16 @@ const HomePage: React.FC = () => {
         isDanger={true}
         onConfirm={handleDeleteSelectedHistory}
         onCancel={() => setShowDeleteConfirm(false)}
+      />
+      <ConfirmDialog
+        isOpen={showResetHistoryConfirm}
+        title="분석 기록 전체 초기화"
+        message="저장된 모든 분석 기록을 삭제합니다. 기존 중국어/레거시 리포트도 함께 사라지며, 삭제 후에는 복구할 수 없습니다."
+        confirmText={isDeletingHistory ? '초기화 중...' : '전체 초기화'}
+        cancelText="취소"
+        isDanger={true}
+        onConfirm={handleResetHistory}
+        onCancel={() => setShowResetHistoryConfirm(false)}
       />
     </div>
   );

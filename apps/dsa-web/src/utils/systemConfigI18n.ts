@@ -101,8 +101,8 @@ const fieldTitleMap: Record<string, string> = {
 };
 
 const fieldDescriptionMap: Record<string, string> = {
-  STOCK_LIST: '분석할 종목 코드를 쉼표로 구분해 입력합니다. 예: 600519,hk00700,AAPL',
-  TUSHARE_TOKEN: 'Tushare Pro 데이터 서비스에 연결하기 위한 토큰입니다.',
+  STOCK_LIST: '분석할 종목 코드를 쉼표로 구분해 입력합니다. 예: 005930.KS,000660.KS,AAPL',
+  TUSHARE_TOKEN: '중국 시장용 Tushare Pro 데이터 서비스 토큰입니다. 한국/미국 중심 기본 흐름에는 필요하지 않습니다.',
   BOCHA_API_KEYS: '뉴스 검색에 사용할 Bocha 키입니다. 여러 개는 쉼표로 구분합니다.',
   TAVILY_API_KEYS: '뉴스 검색에 사용할 Tavily 키입니다. 여러 개는 쉼표로 구분합니다.',
   ANSPIRE_API_KEYS: 'Anspire Open 키입니다. LLM 게이트웨이와 뉴스 검색에 함께 사용할 수 있습니다.',
@@ -119,7 +119,7 @@ const fieldDescriptionMap: Record<string, string> = {
   LITELLM_CONFIG: 'LiteLLM 고급 라우팅 YAML 파일 경로입니다.',
   LLM_CHANNELS: '여러 LLM 채널과 API Key, 모델 목록을 관리합니다.',
   LLM_TEMPERATURE: '모델 출력의 무작위성을 조정합니다. 낮을수록 안정적입니다.',
-  REPORT_LANGUAGE: '리포트와 알림 문구 언어입니다. zh, en, ko를 지원합니다.',
+  REPORT_LANGUAGE: '리포트와 알림 문구 언어입니다. en, zh를 지원합니다.',
   REPORT_TYPE: '리포트 상세 수준입니다. simple, full, brief를 지원합니다.',
   REPORT_SUMMARY_ONLY: '개별 종목 상세 없이 분석 요약만 전송합니다.',
   REPORT_SHOW_LLM_MODEL: '리포트 하단에 이번 분석에 사용한 모델명을 표시합니다.',
