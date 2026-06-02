@@ -239,6 +239,62 @@ def check_notification() -> bool:
     return bool(ok)
 
 
+def check_search(query: str = "AAPL stock news") -> bool:
+    """Verify the configured search provider, including self-hosted SearXNG."""
+    print_header("Search provider check")
+
+    from src.config import get_config
+    from src.search_service import SearchService
+
+    config = get_config()
+    print_section("Configured providers")
+    print(f"  SearXNG base URLs: {len(config.searxng_base_urls)} configured")
+    print(f"  SearXNG public discovery: {config.searxng_public_instances_enabled}")
+    print(f"  Tavily keys: {len(config.tavily_api_keys)} configured")
+    print(f"  Brave keys: {len(config.brave_api_keys)} configured")
+    print(f"  SerpAPI keys: {len(config.serpapi_keys)} configured")
+
+    service = SearchService(
+        bocha_keys=config.bocha_api_keys,
+        tavily_keys=config.tavily_api_keys,
+        anspire_keys=config.anspire_api_keys,
+        brave_keys=config.brave_api_keys,
+        serpapi_keys=config.serpapi_keys,
+        minimax_keys=config.minimax_api_keys,
+        searxng_base_urls=config.searxng_base_urls,
+        searxng_public_instances_enabled=config.searxng_public_instances_enabled,
+        news_max_age_days=config.news_max_age_days,
+        news_strategy_profile=config.news_strategy_profile,
+    )
+
+    if not service.is_available:
+        print("  No search provider is available.")
+        return False
+
+    print_section(f"Search query: {query}")
+    try:
+        response = service.search_stock_news(
+            "SEARCH",
+            "Search check",
+            max_results=3,
+            focus_keywords=[query],
+        )
+    except Exception as exc:
+        logger.exception("Search check failed")
+        print(f"  Search failed: {exc}")
+        return False
+
+    print(f"  Provider: {response.provider}")
+    print(f"  Success: {response.success}")
+    print(f"  Results: {len(response.results)}")
+    if response.error_message:
+        print(f"  Error: {response.error_message}")
+    for idx, item in enumerate(response.results[:3], 1):
+        print(f"  {idx}. {item.title} | {item.source} | {item.url}")
+
+    return bool(response.success)
+
+
 def query_stock_data(stock_code: str) -> bool:
     print_header(f"{stock_code} 데이터 상세 조회")
 
@@ -308,6 +364,8 @@ def main() -> int:
     parser.add_argument("--fetch", action="store_true", help="데이터 소스 조회를 확인합니다.")
     parser.add_argument("--llm", action="store_true", help="LLM 호출을 확인합니다.")
     parser.add_argument("--notify", action="store_true", help="알림 전송을 확인합니다.")
+    parser.add_argument("--search", action="store_true", help="검색 provider 연결을 확인합니다.")
+    parser.add_argument("--search-query", default="AAPL stock news", help="--search에서 사용할 검색어")
     parser.add_argument("--stock", default="600519", help="확인할 종목 코드")
     parser.add_argument("--query", metavar="CODE", help="저장된 특정 종목 데이터를 조회합니다.")
     parser.add_argument("--all", action="store_true", help="기본 확인 항목을 모두 실행합니다.")
@@ -325,6 +383,8 @@ def main() -> int:
         return 0 if check_llm() else 1
     if args.notify:
         return 0 if check_notification() else 1
+    if args.search:
+        return 0 if check_search(args.search_query) else 1
 
     return 0 if run_all_tests(args.stock) else 1
 

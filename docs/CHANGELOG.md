@@ -9,6 +9,7 @@ Daily Stock Analysis의 주요 변경 사항을 기록합니다.
 ## [Unreleased]
 
 
+- [문서] SearXNG 자가 호스팅 운영 가이드를 추가하고 `.env.example`과 `scripts/check_env.py --search` 검색 점검 명령을 보강했습니다.
 - [개선] 한국투자증권 KIS Open API 조회 전용 fetcher를 추가해 한국 종목 현재가와 일봉 데이터를 KIS 우선, yfinance fallback 흐름으로 조회할 수 있게 했습니다.
 - [개선] 미국 주식 기본 분석에 SEC EDGAR 공시 이력과 XBRL companyfacts 조회를 추가해 API 키 없이 10-K/10-Q/8-K와 핵심 재무 fact를 보강할 수 있게 했습니다.
 - [개선] OpenDART adapter를 추가해 한국 종목 fundamental context에 최근 공시와 단일회사 주요계정 재무 데이터를 병합할 수 있게 했습니다.

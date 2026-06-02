@@ -159,6 +159,37 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         p1.search.assert_called_once()
         p2.search.assert_called_once()
 
+    def test_search_stock_news_keeps_searxng_undated_results_as_fallback(self) -> None:
+        """SearXNG often omits dates even when time_range is applied; keep top undated results."""
+        service = SearchService(
+            searxng_public_instances_enabled=False,
+            news_max_age_days=3,
+            news_strategy_profile="short",
+        )
+        provider = SimpleNamespace(
+            is_available=True,
+            name="SearXNG",
+            search=MagicMock(
+                return_value=SearchResponse(
+                    query="test",
+                    results=[
+                        _result("undated one", None, source="news.example"),
+                        _result("undated two", None, source="news.example"),
+                    ],
+                    provider="SearXNG",
+                    success=True,
+                )
+            ),
+        )
+        service._providers = [provider]
+
+        resp = service.search_stock_news("AAPL", "Apple", max_results=1)
+
+        self.assertTrue(resp.success)
+        self.assertEqual(resp.provider, "SearXNG")
+        self.assertEqual([item.title for item in resp.results], ["undated one"])
+        self.assertIsNone(resp.results[0].published_date)
+
     def test_search_stock_news_tries_next_provider_when_chinese_context_is_english_only(self) -> None:
         """Chinese-preferred queries should not stop on English-only provider results."""
         fresh = datetime.now().date().isoformat()

@@ -3032,14 +3032,29 @@ class SearchService:
         latest = today + timedelta(days=self.FUTURE_TOLERANCE_DAYS)
 
         filtered: List[SearchResult] = []
+        undated_fallback: List[SearchResult] = []
         dropped_unknown = 0
         dropped_old = 0
         dropped_future = 0
+        allow_undated_fallback = response.provider == "SearXNG"
 
         for item in response.results:
             published = self._normalize_news_publish_date(item.published_date)
             if published is None:
                 dropped_unknown += 1
+                if allow_undated_fallback and len(filtered) + len(undated_fallback) < max_results:
+                    undated_fallback.append(
+                        SearchResult(
+                            title=item.title,
+                            snippet=item.snippet,
+                            url=item.url,
+                            source=item.source,
+                            published_date=None,
+                            relevance_score=item.relevance_score,
+                            relevance_category=item.relevance_category,
+                            relevance_reasons=item.relevance_reasons,
+                        )
+                    )
                 continue
             if published < earliest:
                 dropped_old += 1
@@ -3062,6 +3077,9 @@ class SearchService:
             )
             if len(filtered) >= max_results:
                 break
+
+        if allow_undated_fallback and len(filtered) < max_results:
+            filtered.extend(undated_fallback[: max_results - len(filtered)])
 
         if dropped_unknown or dropped_old or dropped_future:
             logger.info(
