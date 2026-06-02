@@ -1442,3 +1442,35 @@ worker 会把 `triggered`、`skipped`、`degraded`、`failed` 写入 `alert_trig
 - Agent 可通过 `get_portfolio_snapshot` 获取面向账户的紧凑持仓摘要，默认包含精简风险块，适合控制 Token 开销。
 - 可选参数包括 `account_id`、`cost_method`、`as_of`、`include_positions`、`include_risk`。
 - 若风险块生成失败，快照仍会返回；若当前环境未启用持仓模块，工具会返回结构化 `not_supported`。
+# KIS Open API quote-only setup
+
+For Korean stock quote-only data, configure Korea Investment & Securities Open API credentials in `.env`.
+This integration only calls domestic quotation endpoints and does not place orders.
+
+```env
+KIS_APP_KEY=
+KIS_APP_SECRET=
+KIS_ENV=real
+KIS_API_BASE_URL=https://openapi.koreainvestment.com:9443
+KIS_PRIORITY=0
+```
+
+# SEC EDGAR setup
+
+SEC EDGAR public data APIs do not require an API key. For automated access,
+set an identifying user agent before deployment.
+
+```env
+SEC_USER_AGENT=daily-stock-analysis/1.0 your-email@example.com
+SEC_TIMEOUT_SECONDS=10
+```
+
+# OpenDART setup
+
+OpenDART requires an API key. It is used for Korean company disclosures and
+single-company financial statement enrichment.
+
+```env
+DART_API_KEY=
+DART_TIMEOUT_SECONDS=10
+```

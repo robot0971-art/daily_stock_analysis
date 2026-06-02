@@ -9,6 +9,9 @@ Daily Stock Analysis의 주요 변경 사항을 기록합니다.
 ## [Unreleased]
 
 
+- [개선] 한국투자증권 KIS Open API 조회 전용 fetcher를 추가해 한국 종목 현재가와 일봉 데이터를 KIS 우선, yfinance fallback 흐름으로 조회할 수 있게 했습니다.
+- [개선] 미국 주식 기본 분석에 SEC EDGAR 공시 이력과 XBRL companyfacts 조회를 추가해 API 키 없이 10-K/10-Q/8-K와 핵심 재무 fact를 보강할 수 있게 했습니다.
+- [개선] OpenDART adapter를 추가해 한국 종목 fundamental context에 최근 공시와 단일회사 주요계정 재무 데이터를 병합할 수 있게 했습니다.
 - [개선] `REPORT_LANGUAGE=ko`를 기본 리포트 언어로 추가하고 Web 리포트 라벨과 AI 분석 프롬프트가 한국어 출력을 우선하도록 정리했습니다.
 - [수정] `REPORT_LANGUAGE` 런타임 기본값과 invalid fallback을 설정 스키마와 같은 `ko`/`en`/`zh` 계약에 맞췄습니다.
 - [수정] 분석, 알림, 리포트 렌더링의 설정 기반 언어 fallback이 한국어 기본값을 따르도록 맞췄습니다.

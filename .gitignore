@@ -4,6 +4,9 @@
 *.env
 *.env.local
 .env.*.local
+.kis_token_cache.json
+.sec_ticker_cik_cache.json
+.dart_corp_code_cache.json
 
 # Temporary root-level test scripts, excluding committed test modules.
 /test_*.py
