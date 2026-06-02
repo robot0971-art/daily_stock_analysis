@@ -245,6 +245,7 @@ class YfinanceFetcher(BaseFetcher):
         # 列名映射（yfinance 使用首字母大写）
         column_mapping = {
             'Date': 'date',
+            'index': 'date',
             'Open': 'open',
             'High': 'high',
             'Low': 'low',

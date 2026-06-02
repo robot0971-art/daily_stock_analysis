@@ -193,5 +193,39 @@ class TestGetUsMainIndices(unittest.TestCase):
         self.assertEqual(result[0]['code'], 'SPX')
 
 
+class TestNormalizeData(unittest.TestCase):
+    """Regression tests for current yfinance daily DataFrame shapes."""
+
+    def setUp(self):
+        from data_provider.yfinance_fetcher import YfinanceFetcher
+        self.fetcher = YfinanceFetcher()
+
+    def test_normalize_multiindex_with_unnamed_date_index(self):
+        columns = pd.MultiIndex.from_tuples([
+            ("Open", "AAPL"),
+            ("High", "AAPL"),
+            ("Low", "AAPL"),
+            ("Close", "AAPL"),
+            ("Volume", "AAPL"),
+        ])
+        df = pd.DataFrame(
+            [
+                [100.0, 105.0, 99.0, 104.0, 1000],
+                [104.0, 108.0, 103.0, 107.0, 1200],
+            ],
+            index=pd.DatetimeIndex(["2026-05-28", "2026-05-29"]),
+            columns=columns,
+        )
+
+        result = self.fetcher._normalize_data(df, "AAPL")
+
+        self.assertIn("date", result.columns)
+        self.assertEqual(result["date"].dt.strftime("%Y-%m-%d").tolist(), ["2026-05-28", "2026-05-29"])
+        self.assertEqual(result["code"].tolist(), ["AAPL", "AAPL"])
+        self.assertEqual(result["close"].tolist(), [104.0, 107.0])
+        self.assertEqual(result["amount"].tolist(), [104000.0, 128400.0])
+        self.assertAlmostEqual(result["pct_chg"].iloc[1], 2.88)
+
+
 if __name__ == '__main__':
     unittest.main()

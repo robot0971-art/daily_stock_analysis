@@ -53,6 +53,7 @@ class KisFetcherTestCase(unittest.TestCase):
             fetcher._get = Mock(
                 return_value={
                     "output": {
+                        "hts_kor_isnm": "삼성전자",
                         "stck_prpr": "70000",
                         "prdy_ctrt": "1.25",
                         "prdy_vrss": "900",
@@ -69,6 +70,7 @@ class KisFetcherTestCase(unittest.TestCase):
 
         self.assertIsNotNone(quote)
         self.assertEqual(quote.code, "005930")
+        self.assertEqual(quote.name, "삼성전자")
         self.assertEqual(quote.price, 70000.0)
         self.assertEqual(quote.change_pct, 1.25)
         self.assertEqual(quote.volume, 12345)

@@ -1165,6 +1165,7 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
   const [channels, setChannels] = useState<ChannelConfig[]>(initialChannels);
   const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig>(initialRuntimeConfig);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefreshingModels, setIsRefreshingModels] = useState(false);
   const [saveMessage, setSaveMessage] = useState<
     | { type: 'success'; text: string }
     | { type: 'error'; error: ParsedApiError }
@@ -1251,7 +1252,7 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
     return channels.some((channel, index) => !channelsAreEqual(channel, initialChannels[index]));
   }, [channels, initialChannels, initialRuntimeConfig, runtimeConfig]);
 
-  const busy = disabled || isSaving;
+  const busy = disabled || isSaving || isRefreshingModels;
 
   const updateChannel = (index: number, field: keyof ChannelConfig, value: string | boolean) => {
     const currentChannel = channels[index];
@@ -1548,6 +1549,99 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
     }
   };
 
+  const handleRefreshAllModels = async () => {
+    const targetChannels = channels.filter((channel) => channel.enabled && channel.name.trim());
+    if (targetChannels.length === 0) {
+      setSaveMessage({ type: 'local-error', text: '새로고침할 활성 LLM 채널이 없습니다.' });
+      return;
+    }
+
+    const requestId = discoveryRequestIdRef.current + 1;
+    discoveryRequestIdRef.current = requestId;
+    for (const channel of targetChannels) {
+      discoveryNonceRef.current[channel.id] = requestId;
+    }
+
+    setIsRefreshingModels(true);
+    setSaveMessage(null);
+    setSaveWarnings([]);
+    setDiscoveryStates((previous) => {
+      const next = { ...previous };
+      for (const channel of targetChannels) {
+        next[channel.id] = {
+          status: 'loading',
+          text: '최신 모델 목록을 확인하는 중...',
+          hint: undefined,
+          models: previous[channel.id]?.models || [],
+        };
+      }
+      return next;
+    });
+
+    try {
+      const results = await Promise.allSettled(targetChannels.map(async (channel) => ({
+        channel,
+        result: await systemConfigApi.discoverLLMChannelModels({
+          name: channel.name,
+          protocol: channel.protocol,
+          baseUrl: channel.baseUrl,
+          apiKey: channel.apiKey,
+          models: splitModels(channel.models),
+        }),
+      })));
+      const successfulUpdates: Record<string, string> = {};
+      const nextDiscoveryStates: Record<string, ChannelDiscoveryState> = {};
+
+      results.forEach((settled, index) => {
+        const channel = targetChannels[index];
+        if (!channel || discoveryNonceRef.current[channel.id] !== requestId) {
+          return;
+        }
+        if (settled.status === 'fulfilled') {
+          const { result } = settled.value;
+          if (result.success) {
+            successfulUpdates[channel.id] = result.models.join(',');
+          }
+          nextDiscoveryStates[channel.id] = {
+            status: result.success ? 'success' : 'error',
+            text: result.success
+              ? `가져옴 ${result.models.length}개 모델${result.latencyMs ? ` · ${result.latencyMs} ms` : ''}`
+              : buildLlmFailureText(result),
+            hint: result.success ? undefined : getLlmTroubleshootingHint(result.errorCode, result.stage, 'discovery', result.details),
+            models: result.success ? result.models : (discoveryStates[channel.id]?.models || []),
+          };
+          return;
+        }
+
+        const parsed = getParsedApiError(settled.reason);
+        nextDiscoveryStates[channel.id] = {
+          status: 'error',
+          text: parsed.message || '모델 새로고침 실패',
+          hint: undefined,
+          models: discoveryStates[channel.id]?.models || [],
+        };
+      });
+
+      if (Object.keys(successfulUpdates).length > 0) {
+        setChannels((previous) => previous.map((channel) => (
+          Object.prototype.hasOwnProperty.call(successfulUpdates, channel.id)
+            ? { ...channel, models: successfulUpdates[channel.id] }
+            : channel
+        )));
+      }
+      setDiscoveryStates((previous) => ({ ...previous, ...nextDiscoveryStates }));
+
+      const successCount = Object.values(nextDiscoveryStates).filter((state) => state.status === 'success').length;
+      const failCount = Object.values(nextDiscoveryStates).filter((state) => state.status === 'error').length;
+      setSaveMessage({
+        type: successCount > 0 ? 'success' : 'local-error',
+        text: `모델 새로고침 완료: 성공 ${successCount}개, 실패 ${failCount}개`,
+      });
+    } finally {
+      setIsRefreshingModels(false);
+    }
+  };
+
   const toggleCapability = (channel: ChannelConfig, capability: LLMCapabilityCheck) => {
     setCapabilityStates((previous) => {
       const current = previous[channel.id] || { selected: [], status: 'idle', results: {} };
@@ -1699,6 +1793,15 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
             <div className="flex items-center gap-2">
               <Button type="button" variant="settings-primary" className="whitespace-nowrap" disabled={busy} onClick={addChannel}>
                 + 채널 추가
+              </Button>
+              <Button
+                type="button"
+                variant="settings-secondary"
+                className="whitespace-nowrap"
+                disabled={busy || channels.filter((channel) => channel.enabled).length === 0}
+                onClick={() => void handleRefreshAllModels()}
+              >
+                {isRefreshingModels ? '모델 확인 중...' : '모든 모델 새로고침'}
               </Button>
               <Select
                 value={addPreset}

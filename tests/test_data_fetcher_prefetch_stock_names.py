@@ -105,6 +105,22 @@ class TestPrefetchStockNames(unittest.TestCase):
         remote_fetcher.get_stock_name.assert_not_called()
         self.assertEqual(manager._stock_name_cache["600519"], "贵州茅台")
 
+    def test_get_stock_name_resolves_common_korean_static_mapping(self):
+        manager = DataFetcherManager.__new__(DataFetcherManager)
+        remote_fetcher = MagicMock()
+        remote_fetcher.name = "RemoteFetcher"
+        remote_fetcher.get_stock_name.return_value = "Remote Name"
+        manager._fetchers = [remote_fetcher]
+        manager.get_realtime_quote = MagicMock()
+
+        with patch("data_provider.base.get_index_stock_name", return_value=None):
+            name = DataFetcherManager.get_stock_name(manager, "005930.KS", allow_realtime=False)
+
+        self.assertEqual(name, "삼성전자")
+        manager.get_realtime_quote.assert_not_called()
+        remote_fetcher.get_stock_name.assert_not_called()
+        self.assertEqual(manager._stock_name_cache["005930.KS"], "삼성전자")
+
     def test_get_stock_name_prefers_index_mapping_before_remote_fetchers(self):
         manager = DataFetcherManager.__new__(DataFetcherManager)
         remote_fetcher = MagicMock()
