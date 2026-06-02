@@ -12,6 +12,7 @@ A주관심종목지능형분석시스템 - AI분석핵심
 import json
 import logging
 import math
+import os
 import re
 import sys
 import time
@@ -65,6 +66,8 @@ from src.analyzer.stabilizer import (
 )
 
 logger = logging.getLogger(__name__)
+
+LLM_REQUEST_TIMEOUT_SECONDS_DEFAULT = 300.0
 
 
 def _normalize_text_list(value: Any) -> List[str]:
@@ -785,6 +788,13 @@ class GeminiAnalyzer:
         response_validator: Optional[Callable[[str], None]] = None,
     ) -> Tuple[str, str, Dict[str, Any]]:
         config = self._get_runtime_config()
+        try:
+            request_timeout = float(
+                os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", str(LLM_REQUEST_TIMEOUT_SECONDS_DEFAULT))
+            )
+        except (TypeError, ValueError):
+            request_timeout = LLM_REQUEST_TIMEOUT_SECONDS_DEFAULT
+        request_timeout = max(5.0, request_timeout)
         max_tokens = (
             generation_config.get('max_output_tokens')
             or generation_config.get('max_tokens')
@@ -819,6 +829,7 @@ class GeminiAnalyzer:
                         {"role": "user", "content": prompt},
                     ],
                     "max_tokens": max_tokens,
+                    "timeout": request_timeout,
                 }
                 if extra:
                     call_kwargs["extra_body"] = extra
@@ -846,6 +857,7 @@ class GeminiAnalyzer:
 
                 _stream_text: Optional[str] = None
                 _stream_usage: Dict[str, Any] = {}
+                skip_non_stream_retry = False
 
                 if stream:
                     try:
@@ -881,17 +893,20 @@ class GeminiAnalyzer:
                             )
                         else:
                             logger.warning(
-                                "[LiteLLM] %s stream unavailable before first chunk, falling back to non-stream: %s",
+                                "[LiteLLM] %s stream unavailable before first chunk, trying next fallback model: %s",
                                 model,
                                 exc,
                             )
+                            skip_non_stream_retry = True
                         last_error = exc
                     except Exception as exc:
                         logger.warning(
-                            "[LiteLLM] %s stream request failed before first chunk, falling back to non-stream: %s",
+                            "[LiteLLM] %s stream request failed before first chunk, trying next fallback model: %s",
                             model,
                             exc,
                         )
+                        skip_non_stream_retry = True
+                        last_error = exc
 
                 if _stream_text is not None:
                     last_response_text = _stream_text
@@ -900,6 +915,9 @@ class GeminiAnalyzer:
                     if response_validator is not None:
                         response_validator(_stream_text)
                     return _stream_text, model, _stream_usage
+
+                if skip_non_stream_retry:
+                    continue
 
                 recovery_call = self._package_attr(
                     "call_litellm_with_param_recovery",
@@ -1032,7 +1050,10 @@ class GeminiAnalyzer:
             }
 
             logger.info(f"[LLM호출] 시작호출 {model_name}...")
-            _emit_progress(68, f"{name}: LLM 요청을 보냈고 응답을 기다리는 중")
+            _emit_progress(
+                68,
+                f"{name}: AI가 리포트를 작성하는 중입니다. 복잡한 분석은 몇 분 걸릴 수 있습니다.",
+            )
 
             current_prompt = prompt
             retry_count = 0
@@ -1519,14 +1540,27 @@ class GeminiAnalyzer:
 - Use the common English company name when you are confident. If not, keep the listed company name rather than inventing one.
 - When data is missing, explain it in English instead of Chinese.
 """
+        elif report_language == "ko":
+            prompt += f"""
+
+### 한국어 출력 요구사항 (최고 우선순위)
+- JSON key 이름은 그대로 유지하세요. key는 번역하지 마세요.
+- `decision_type` 값은 반드시 `buy`, `hold`, `sell` 중 하나로 유지하세요.
+- 사용자가 읽는 모든 JSON value는 자연스러운 한국어로 작성하세요.
+- 중국어 문장, 중국어 라벨, 중국식 표현을 절대 사용하지 마세요.
+- 금지 예시: `看多`, `震荡`, `观望`, `持有`, `风险`, `利好`, `空仓者`, `一句话决策`, `韩元`, `亿元`.
+- 위 금지 표현이 필요하면 각각 `긍정`, `횡보`, `관망`, `보유`, `리스크`, `긍정 요인`, `미보유자`, `한 줄 결론`, `원`, `억원`처럼 한국어로 바꾸세요.
+- 설명은 초보 투자자도 이해할 수 있게 짧고 구체적으로 쓰세요.
+- 데이터가 부족하면 “{no_data_text}, 판단하기 어렵습니다”라고 한국어로 설명하세요.
+"""
         else:
             prompt += f"""
 
-### 출력语言要求（최고우선순위）
-- 모든 JSON 键名필수保持不变，不要翻译键名。
-- `decision_type` 필수保持위해 `buy`、`hold`、`sell`。
-- 모든面로사용자의人类可读텍스트치필수사용중국어。
-- 当데이터누락时，请사용중국어직접설명“{no_data_text}，판단불가”。
+### 输出语言要求（最高优先级）
+- 所有 JSON 键名必须保持不变，不要翻译键名。
+- `decision_type` 必须保持为 `buy`、`hold`、`sell`。
+- 所有面向用户的人类可读文本值必须使用中文。
+- 当数据缺失时，请用中文直接说明“{no_data_text}，无法判断”。
 """
 
         if report_language == "zh":

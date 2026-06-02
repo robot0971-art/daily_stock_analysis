@@ -4,8 +4,9 @@
 
 Default flow:
 1. Fetch Tushare stock lists into ``data/`` with ``--a-rk`` for A-share name correction.
-2. Generate ``apps/dsa-web/public/stocks.index.json`` from CSV.
-3. Copy the generated index to ``static/stocks.index.json`` for backend use.
+2. Fetch KRX/KOSDAQ names into ``data/stock_list_kr.csv``.
+3. Generate ``apps/dsa-web/public/stocks.index.json`` from CSV.
+4. Copy the generated index to ``static/stocks.index.json`` for backend use.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ def _run(command: Sequence[str]) -> None:
     print(f"[refresh_stock_index] $ {' '.join(command)}", flush=True)
     env = os.environ.copy()
     env.setdefault("PYTHONUNBUFFERED", "1")
+    env.setdefault("PYTHONIOENCODING", "utf-8")
     subprocess.run(command, cwd=REPO_ROOT, check=True, env=env)
 
 
@@ -61,6 +63,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="跳过 Tushare 抓取，仅用现有 data/stock_list_*.csv 重新生成索引",
     )
+    parser.add_argument(
+        "--skip-kr-fetch",
+        action="store_true",
+        help="Skip the Naver/KRX stock-list refresh and reuse data/stock_list_kr.csv if present.",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -75,6 +82,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 return 2
             _run([sys.executable, "scripts/fetch_tushare_stock_list.py", "--a-rk"])
+
+        if args.skip_kr_fetch:
+            print("[refresh_stock_index] skip Korean stock-list fetch; using existing CSV if present")
+        else:
+            _run([sys.executable, "scripts/fetch_krx_stock_list.py"])
 
         _run([sys.executable, "scripts/generate_index_from_csv.py", "--source", "tushare"])
         _sync_static_index()

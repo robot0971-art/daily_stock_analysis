@@ -62,6 +62,7 @@ class KisFetcherTestCase(unittest.TestCase):
                         "stck_hgpr": "70500",
                         "stck_lwpr": "68800",
                         "stck_sdpr": "69100",
+                        "hts_avls": "123456789",
                     }
                 }
             )
@@ -74,6 +75,8 @@ class KisFetcherTestCase(unittest.TestCase):
         self.assertEqual(quote.price, 70000.0)
         self.assertEqual(quote.change_pct, 1.25)
         self.assertEqual(quote.volume, 12345)
+        self.assertIsNone(quote.turnover_rate)
+        self.assertEqual(quote.total_mv, 123456789.0)
 
     def test_daily_data_normalization(self):
         fetcher = KisFetcher()

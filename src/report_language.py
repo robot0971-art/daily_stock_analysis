@@ -30,27 +30,36 @@ _REPORT_LANGUAGE_ALIASES = {
 
 _OPERATION_ADVICE_CANONICAL_MAP = {
     "강력매수": "strong_buy",
+    "强烈买入": "strong_buy",
     "strong buy": "strong_buy",
     "strong_buy": "strong_buy",
     "매수": "buy",
+    "买入": "buy",
+    "加仓": "buy",
     "buy": "buy",
     "비중 확대": "buy",
     "accumulate": "buy",
     "add position": "buy",
     "보유": "hold",
+    "持有": "hold",
+    "持有观察": "hold",
     "세탁관찰": "hold",
     "관찰": "hold",
     "hold": "hold",
     "관망": "watch",
+    "观望": "watch",
     "watch": "watch",
     "wait": "watch",
     "wait and see": "watch",
     "비중 축소": "reduce",
+    "减仓": "reduce",
     "reduce": "reduce",
     "trim": "reduce",
     "매도": "sell",
+    "卖出": "sell",
     "sell": "sell",
     "강력매도": "strong_sell",
+    "强烈卖出": "strong_sell",
     "strong sell": "strong_sell",
     "strong_sell": "strong_sell",
 }
@@ -68,15 +77,21 @@ _OPERATION_ADVICE_TRANSLATIONS = {
 _TREND_PREDICTION_CANONICAL_MAP = {
     "강한하락세": "strong_bearish",
     "강력낙관": "strong_bullish",
+    "强烈看多": "strong_bullish",
     "strong bullish": "strong_bullish",
     "very bullish": "strong_bullish",
     "강한상승세": "strong_bullish",
     "상승세정렬": "bullish",
+    "看多": "bullish",
+    "多头排列": "bullish",
+    "强势多头": "bullish",
     "하락세정렬": "bearish",
     "약한상승세": "bullish",
     "약한하락세": "bearish",
     "낙관": "bullish",
     "횡보": "sideways",
+    "震荡": "sideways",
+    "震荡观望": "sideways",
     "bullish": "bullish",
     "uptrend": "bullish",
     "흔들림": "sideways",
@@ -84,9 +99,11 @@ _TREND_PREDICTION_CANONICAL_MAP = {
     "sideways": "sideways",
     "range-bound": "sideways",
     "비관": "bearish",
+    "看空": "bearish",
     "bearish": "bearish",
     "downtrend": "bearish",
     "강력비관": "strong_bearish",
+    "强烈看空": "strong_bearish",
     "strong bearish": "strong_bearish",
     "very bearish": "strong_bearish",
 }
@@ -137,14 +154,15 @@ _BIAS_STATUS_CANONICAL_MAP = {
     "경계": "caution",
     "caution": "caution",
     "危险": "danger",
+    "위험": "danger",
     "risk": "danger",
     "danger": "danger",
 }
 
 _BIAS_STATUS_TRANSLATIONS = {
     "safe": {"zh": "안전", "en": "Safe"},
-    "caution": {"zh": "警戒", "en": "Caution"},
-    "danger": {"zh": "危险", "en": "Danger"},
+    "caution": {"zh": "경계", "en": "Caution"},
+    "danger": {"zh": "위험", "en": "Danger"},
 }
 
 _PLACEHOLDER_BY_LANGUAGE = {
@@ -216,7 +234,7 @@ _REPORT_LABELS: Dict[str, Dict[str, str]] = {
         "summary_heading": "분석결과요약",
         "info_heading": "중요정보速览",
         "sentiment_summary_label": "여론심리",
-        "earnings_outlook_label": "실적전망",
+        "earnings_outlook_label": "실적 전망",
         "risk_alerts_label": "리스크警报",
         "evidence_heading": "분석근거",
         "counter_evidence_heading": "反로근거",
@@ -248,7 +266,7 @@ _REPORT_LABELS: Dict[str, Dict[str, str]] = {
         "no_position_label": "空仓者",
         "has_position_label": "보유 포지션者",
         "continue_holding": "계속보유",
-        "market_snapshot_heading": "당일시세",
+        "market_snapshot_heading": "당일 시세",
         "close_label": "종가",
         "prev_close_label": "전일종가",
         "open_label": "시가",
@@ -260,7 +278,7 @@ _REPORT_LABELS: Dict[str, Dict[str, str]] = {
         "volume_label": "거래량",
         "amount_label": "거래대금",
         "current_price_label": "현재가",
-        "volume_ratio_label": "거래량비율",
+        "volume_ratio_label": "거래량 비율",
         "turnover_rate_label": "회전율",
         "source_label": "시세출처",
         "data_perspective_heading": "데이터원근",
@@ -282,9 +300,9 @@ _REPORT_LABELS: Dict[str, Dict[str, str]] = {
         "secondary_buy_label": "차优매수点",
         "stop_loss_label": "손절位",
         "take_profit_label": "목표가",
-        "suggested_position_label": "포지션제안",
-        "entry_plan_label": "포지션구축전략",
-        "risk_control_label": "리스크관리전략",
+        "suggested_position_label": "권장 포지션",
+        "entry_plan_label": "진입 전략",
+        "risk_control_label": "리스크 관리",
         "checklist_heading": "확인清단일",
         "failed_checks_heading": "확인未통해项",
         "history_compare_heading": "과거신호에비",
@@ -299,7 +317,7 @@ _REPORT_LABELS: Dict[str, Dict[str, str]] = {
         "avg_score_label": "균分",
         "action_points_heading": "操作点位",
         "position_advice_heading": "보유 포지션제안",
-        "analysis_model_label": "분석모델",
+        "analysis_model_label": "분석 모델",
         "not_investment_advice": "AI생성，참고용，不构成投资제안",
         "details_report_hint": "详细리포트见",
         "financial_summary_heading": "재무요약",
@@ -492,6 +510,76 @@ _ZH_REPORT_LABEL_OVERRIDES = {
     "leading_board_label": "领涨",
     "lagging_board_label": "领跌",
 }
+_KO_REPORT_LABELS.update(
+    {
+        "dashboard_title": "의사결정 대시보드",
+        "brief_title": "의사결정 요약",
+        "analyzed_prefix": "분석 종목",
+        "stock_unit": "개",
+        "stock_unit_compact": "개",
+        "summary_heading": "분석 결과 요약",
+        "info_heading": "핵심 정보 요약",
+        "risk_alerts_label": "리스크 알림",
+        "evidence_heading": "분석 근거",
+        "counter_evidence_heading": "반대 근거",
+        "confidence_heading": "신뢰도",
+        "confidence_reason_label": "신뢰도 판단 이유",
+        "data_limitations_heading": "데이터 한계",
+        "thesis_tracking_heading": "이전 분석 대비 변화",
+        "thesis_status_label": "투자 가설 상태",
+        "current_thesis_label": "현재 투자 가설",
+        "previous_thesis_label": "이전 투자 가설",
+        "key_changes_label": "핵심 변화",
+        "evidence_graph_heading": "근거 연결도",
+        "evidence_graph_summary_label": "근거 요약",
+        "stale_evidence_label": "시효가 지난 근거",
+        "risk_engine_heading": "리스크 엔진",
+        "risk_level_label": "리스크 수준",
+        "risk_score_label": "리스크 점수",
+        "volatility_label": "연환산 변동성",
+        "max_drawdown_label": "최대 낙폭",
+        "position_caution_label": "포지션 주의사항",
+        "positive_catalysts_label": "긍정 촉매",
+        "latest_news_label": "최신 동향",
+        "one_sentence_label": "한 줄 결론",
+        "time_sensitivity_label": "대응 시점",
+        "default_time_sensitivity": "이번 주 안",
+        "position_status_label": "현재 상태",
+        "action_advice_label": "대응 방법",
+        "no_position_label": "미보유",
+        "has_position_label": "보유 중",
+        "continue_holding": "계속 보유",
+        "data_perspective_heading": "데이터 관점",
+        "ma_alignment_label": "이동평균 배열",
+        "bullish_alignment_label": "상승 배열 여부",
+        "yes_label": "예",
+        "no_label": "아니오",
+        "trend_strength_label": "추세 강도",
+        "chip_label": "매물대",
+        "battle_plan_heading": "대응 계획",
+        "ideal_buy_label": "1차 매수 구간",
+        "secondary_buy_label": "2차 매수 구간",
+        "stop_loss_label": "손절 기준",
+        "take_profit_label": "목표 구간",
+        "checklist_heading": "확인 체크리스트",
+        "failed_checks_heading": "미충족 항목",
+        "generated_at_label": "리포트 생성 시간",
+        "no_results": "분석 결과 없음",
+        "avg_score_label": "평균 점수",
+        "action_points_heading": "가격 대응 구간",
+        "not_investment_advice": "AI가 생성한 참고용 정보이며 투자 조언이 아닙니다.",
+        "details_report_hint": "상세 리포트",
+        "operating_cash_flow_label": "영업현금흐름",
+        "revenue_yoy_label": "매출 전년비",
+        "net_profit_yoy_label": "순이익 전년비",
+        "gross_margin_label": "매출총이익률",
+        "shareholder_return_heading": "주주환원",
+        "ttm_cash_dividend_label": "최근 12개월 주당 현금배당(세전)",
+        "ttm_event_count_label": "최근 12개월 배당 횟수",
+        "ttm_dividend_yield_label": "TTM 배당수익률",
+        "latest_ex_dividend_label": "최근 배당락일",
+    }
+)
 _REPORT_LABELS["ko"] = _KO_REPORT_LABELS
 _REPORT_LABELS["zh"].update(_ZH_REPORT_LABEL_OVERRIDES)
 
@@ -500,7 +588,7 @@ _UNKNOWN_BY_LANGUAGE.update({"ko": "알수없음", "zh": "未知"})
 _NO_DATA_BY_LANGUAGE.update({"ko": "데이터누락", "zh": "数据缺失"})
 _CHIP_UNAVAILABLE_BY_LANGUAGE.update(
     {
-        "ko": "매물대분포미활성화또는데이터소스일시사용불가，미포함매물대판단。",
+        "ko": "매물대 데이터가 없거나 일시적으로 사용할 수 없어 판단에 반영하지 않았습니다.",
         "zh": "筹码分布未启用或数据源暂不可用，未纳入筹码判断。",
     }
 )
@@ -547,6 +635,21 @@ _OPERATION_ADVICE_TRANSLATIONS["watch"]["zh"] = "观望"
 _OPERATION_ADVICE_TRANSLATIONS["reduce"]["zh"] = "减仓"
 _OPERATION_ADVICE_TRANSLATIONS["sell"]["zh"] = "卖出"
 _OPERATION_ADVICE_TRANSLATIONS["strong_sell"]["zh"] = "强烈卖出"
+_OPERATION_ADVICE_CANONICAL_MAP.update(
+    {
+        "hold and watch": "watch",
+        "hold/watch": "watch",
+        "hold & watch": "watch",
+        "\uad00\ub9dd/\ubcf4\uc720": "watch",
+    }
+)
+_OPERATION_ADVICE_TRANSLATIONS["strong_buy"]["ko"] = "\uac15\ub825 \ub9e4\uc218"
+_OPERATION_ADVICE_TRANSLATIONS["buy"]["ko"] = "\ub9e4\uc218"
+_OPERATION_ADVICE_TRANSLATIONS["hold"]["ko"] = "\ubcf4\uc720"
+_OPERATION_ADVICE_TRANSLATIONS["watch"]["ko"] = "\uad00\ub9dd"
+_OPERATION_ADVICE_TRANSLATIONS["reduce"]["ko"] = "\ube44\uc911 \ucd95\uc18c"
+_OPERATION_ADVICE_TRANSLATIONS["sell"]["ko"] = "\ub9e4\ub3c4"
+_OPERATION_ADVICE_TRANSLATIONS["strong_sell"]["ko"] = "\uac15\ub825 \ub9e4\ub3c4"
 _TREND_PREDICTION_CANONICAL_MAP.update(
     {
         "强烈看多": "strong_bullish",

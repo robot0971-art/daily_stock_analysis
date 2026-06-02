@@ -6,12 +6,15 @@ import unittest
 from src.report_language import (
     get_bias_status_emoji,
     get_localized_stock_name,
+    get_report_labels,
     get_sentiment_label,
     get_signal_level,
     infer_decision_type_from_advice,
+    localize_operation_advice,
     localize_trend_prediction,
     localize_bias_status,
 )
+from src.notification import NotificationService
 
 
 class ReportLanguageTestCase(unittest.TestCase):
@@ -72,6 +75,43 @@ class ReportLanguageTestCase(unittest.TestCase):
             infer_decision_type_from_advice("不破支撑后仍可持有"),
             "hold",
         )
+
+
+class KoreanReportPolishTestCase(unittest.TestCase):
+    def test_korean_report_labels_do_not_use_chinese_mixed_text(self) -> None:
+        labels = get_report_labels("ko")
+
+        self.assertEqual(labels["dashboard_title"], "의사결정 대시보드")
+        self.assertEqual(labels["info_heading"], "핵심 정보 요약")
+        self.assertEqual(labels["risk_alerts_label"], "리스크 알림")
+        self.assertEqual(labels["one_sentence_label"], "한 줄 결론")
+        self.assertEqual(labels["no_position_label"], "미보유")
+        self.assertEqual(labels["battle_plan_heading"], "대응 계획")
+
+        joined = "\n".join(labels.values())
+        for forbidden in ("警报", "速览", "一句话", "时效", "空仓", "作战", "清单", "只股票"):
+            self.assertNotIn(forbidden, joined)
+
+    def test_korean_localizers_translate_common_chinese_ai_values(self) -> None:
+        self.assertEqual(localize_operation_advice("持有", "ko"), "보유")
+        self.assertEqual(localize_operation_advice("观望", "ko"), "관망")
+        self.assertEqual(localize_trend_prediction("震荡", "ko"), "흔들림")
+        self.assertEqual(localize_trend_prediction("看多", "ko"), "낙관")
+        self.assertEqual(localize_bias_status("危险", "ko"), "위험")
+
+    def test_korean_report_text_filter_replaces_common_chinese_terms(self) -> None:
+        text = NotificationService._clean_report_text(
+            "风险点1：动态PER高，韩元目标价，强势多头排列，空仓者严禁追高",
+            "ko",
+        )
+
+        self.assertIn("리스크1", text)
+        self.assertIn("동적 PER", text)
+        self.assertIn("원", text)
+        self.assertIn("강한 상승 배열", text)
+        self.assertIn("미보유자는", text)
+        for forbidden in ("风险", "韩元", "强势多头", "空仓者", "追高"):
+            self.assertNotIn(forbidden, text)
 
 
 if __name__ == "__main__":

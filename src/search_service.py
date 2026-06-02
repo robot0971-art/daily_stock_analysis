@@ -3692,6 +3692,21 @@ class SearchService:
                     max_results=provider_max_results,
                     days=search_days,
                 )
+            if (
+                is_korean
+                and dim.get("name") == "latest_news"
+                and (not response.success or not response.results)
+            ):
+                fallback_query = f"{stock_name} \ucd5c\uc2e0 \ub274\uc2a4"
+                logger.info(
+                    "[news_search] Korean latest-news query returned no results; retrying simpler query: %s",
+                    fallback_query,
+                )
+                response = provider.search(
+                    fallback_query,
+                    max_results=provider_max_results,
+                    days=search_days,
+                )
             if dim['strict_freshness']:
                 filtered_response = self._filter_news_response(
                     response,

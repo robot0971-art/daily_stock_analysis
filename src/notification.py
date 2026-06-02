@@ -12,6 +12,7 @@ Responsibilities:
 from __future__ import annotations
 
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -909,6 +910,113 @@ class NotificationService(
                 return value[len(prefix):]
         return value
 
+    _KO_TEXT_REPLACEMENTS = (
+        ("风险点", "리스크"),
+        ("风险", "리스크"),
+        ("利好", "긍정 요인"),
+        ("机构看多", "기관투자자는 긍정적으로 보고 있음"),
+        ("市场情绪", "시장 심리"),
+        ("业绩预期", "실적 전망"),
+        ("营业利润", "영업이익"),
+        ("同比", "전년 대비"),
+        ("核心驱动力", "핵심 동력"),
+        ("需警惕", "주의할 필요가 있음"),
+        ("动态PER", "동적 PER"),
+        ("估值", "밸류에이션"),
+        ("获利回吐", "차익 실현"),
+        ("压力", "압력"),
+        ("超买", "과열"),
+        ("回调", "조정"),
+        ("乖离率", "이격도"),
+        ("追高", "고점 추격"),
+        ("被套", "손실 위험"),
+        ("价涨量缩", "가격은 올랐지만 거래량은 줄어든 상태"),
+        ("量能", "거래량"),
+        ("持续性", "지속성"),
+        ("盘中", "장중"),
+        ("冲高回落", "상승 후 되밀림"),
+        ("上方抛压", "상단 매도 압력"),
+        ("筹码", "매물대"),
+        ("技术领先", "기술 우위"),
+        ("股价", "주가"),
+        ("评级", "의견"),
+        ("目标价", "목표가"),
+        ("看多", "긍정"),
+        ("震荡", "횡보"),
+        ("观望", "관망"),
+        ("持有", "보유"),
+        ("买入", "매수"),
+        ("卖出", "매도"),
+        ("减仓", "비중 축소"),
+        ("强势多头排列", "강한 상승 배열"),
+        ("强势多头", "강한 상승세"),
+        ("多头排列", "상승 배열"),
+        ("均线", "이동평균선"),
+        ("发散上行", "상방으로 벌어짐"),
+        ("缩量", "거래량 감소"),
+        ("数据异常，无法判断", "데이터가 비정상적이어서 판단하기 어렵습니다"),
+        ("理想买入点", "1차 매수 구간"),
+        ("次优买入点", "2차 매수 구간"),
+        ("止损位", "손절 기준"),
+        ("目标位", "목표 구간"),
+        ("建议仓位", "권장 비중"),
+        ("分批建仓策略", "분할 매수 전략"),
+        ("风控策略", "리스크 관리 전략"),
+        ("空仓者", "미보유자는"),
+        ("持仓者", "보유자는"),
+        ("不急", "서두르지 않아도 됨"),
+        ("严禁", "금지"),
+        ("耐心等待", "기다림"),
+        ("继续", "계속"),
+        ("等待", "기다림"),
+        ("回踩", "조정"),
+        ("放量", "거래량 증가"),
+        ("跌破", "하향 이탈"),
+        ("滞涨", "상승 둔화"),
+        ("减仓", "비중 축소"),
+        ("锁定", "확정"),
+        ("利润", "수익"),
+        ("分歧", "의견 차이"),
+        ("谨慎乐观", "신중한 낙관"),
+        ("乐观", "낙관적"),
+        ("附近", "부근"),
+        ("支撑", "지지"),
+        ("阻力", "저항"),
+        ("突破", "돌파"),
+        ("确认", "확인"),
+        ("韩元", "원"),
+        ("억위안", "억 원"),
+        ("亿元", "억원"),
+        ("万元", "만원"),
+        ("元", "원"),
+        ("万股", "만 주"),
+        ("亿美元", "억 달러"),
+        ("港元", "홍콩달러"),
+        ("危险", "위험"),
+        ("警戒", "경계"),
+        ("安全", "안전"),
+        ("一句话决策", "한 줄 결론"),
+        ("时效性", "대응 시점"),
+    )
+
+    @classmethod
+    def _clean_report_text(cls, value: Any, report_language: Optional[str]) -> str:
+        """Polish free-form report text for Korean output without changing data values."""
+        if value is None:
+            return "N/A"
+        text = str(value).strip()
+        if not text:
+            return ""
+        if normalize_report_language(report_language) != "ko":
+            return text
+        for source, target in cls._KO_TEXT_REPLACEMENTS:
+            text = text.replace(source, target)
+        text = re.sub(r"检查项\s*(\d+)", r"확인 항목 \1", text)
+        text = re.sub(r"(\d+(?:\.\d+)?)\s*成", r"\1단계", text)
+        text = text.replace("：", ": ").replace("，", ", ").replace("；", "; ")
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
     def _get_signal_level(self, result: AnalysisResult) -> tuple:
         """Get localized signal level and color based on operation advice."""
         return get_signal_level(
@@ -1021,34 +1129,49 @@ class NotificationService(
                     ])
                     # Sentiment summary.
                     if intel.get('sentiment_summary'):
-                        report_lines.append(f"**💭 {labels['sentiment_summary_label']}**: {intel['sentiment_summary']}")
+                        report_lines.append(
+                            f"**💭 {labels['sentiment_summary_label']}**: "
+                            f"{self._clean_report_text(intel['sentiment_summary'], report_language)}"
+                        )
                     # Earnings outlook.
                     if intel.get('earnings_outlook'):
-                        report_lines.append(f"**📊 {labels['earnings_outlook_label']}**: {intel['earnings_outlook']}")
+                        report_lines.append(
+                            f"**📊 {labels['earnings_outlook_label']}**: "
+                            f"{self._clean_report_text(intel['earnings_outlook'], report_language)}"
+                        )
                     # Risk alerts.
                     risk_alerts = intel.get('risk_alerts', [])
                     if risk_alerts:
                         report_lines.append("")
                         report_lines.append(f"**🚨 {labels['risk_alerts_label']}**:")
                         for alert in risk_alerts:
-                            report_lines.append(f"- {alert}")
+                            report_lines.append(f"- {self._clean_report_text(alert, report_language)}")
                     # Positive catalysts
                     catalysts = intel.get('positive_catalysts', [])
                     if catalysts:
                         report_lines.append("")
                         report_lines.append(f"**✨ {labels['positive_catalysts_label']}**:")
                         for cat in catalysts:
-                            report_lines.append(f"- {cat}")
+                            report_lines.append(f"- {self._clean_report_text(cat, report_language)}")
                     # Latest news
                     if intel.get('latest_news'):
                         report_lines.append("")
-                        report_lines.append(f"**📢 {labels['latest_news_label']}**: {intel['latest_news']}")
+                        report_lines.append(
+                            f"**📢 {labels['latest_news_label']}**: "
+                            f"{self._clean_report_text(intel['latest_news'], report_language)}"
+                        )
                     report_lines.append("")
 
                 # ========== Core conclusion ==========
                 core = dashboard.get('core_conclusion', {}) if dashboard else {}
-                one_sentence = core.get('one_sentence', result.analysis_summary)
-                time_sense = core.get('time_sensitivity', labels['default_time_sensitivity'])
+                one_sentence = self._clean_report_text(
+                    core.get('one_sentence', result.analysis_summary),
+                    report_language,
+                )
+                time_sense = self._clean_report_text(
+                    core.get('time_sensitivity', labels['default_time_sensitivity']),
+                    report_language,
+                )
                 pos_advice = core.get('position_advice', {})
 
                 report_lines.extend([
@@ -1066,8 +1189,8 @@ class NotificationService(
                     report_lines.extend([
                         f"| {labels['position_status_label']} | {labels['action_advice_label']} |",
                         "|---------|---------|",
-                        f"| 🆕 **{labels['no_position_label']}** | {pos_advice.get('no_position', localize_operation_advice(result.operation_advice, report_language))} |",
-                        f"| 💼 **{labels['has_position_label']}** | {pos_advice.get('has_position', labels['continue_holding'])} |",
+                        f"| 🆕 **{labels['no_position_label']}** | {self._clean_report_text(pos_advice.get('no_position', localize_operation_advice(result.operation_advice, report_language)), report_language)} |",
+                        f"| 💼 **{labels['has_position_label']}** | {self._clean_report_text(pos_advice.get('has_position', labels['continue_holding']), report_language)} |",
                         "",
                     ])
 
@@ -1093,14 +1216,14 @@ class NotificationService(
                             else f"❌ {labels['no_label']}"
                         )
                         report_lines.extend([
-                            f"**{labels['ma_alignment_label']}**: {trend_data.get('ma_alignment', 'N/A')} | "
+                            f"**{labels['ma_alignment_label']}**: {self._clean_report_text(trend_data.get('ma_alignment', 'N/A'), report_language)} | "
                             f"{labels['bullish_alignment_label']}: {is_bullish} | "
                             f"{labels['trend_strength_label']}: {trend_data.get('trend_score', 'N/A')}/100",
                             "",
                         ])
                     # Price position
                     if price_data:
-                        bias_status = price_data.get('bias_status', 'N/A')
+                        bias_status = self._clean_report_text(price_data.get('bias_status', 'N/A'), report_language)
                         report_lines.extend([
                             f"| {labels['price_metrics_label']} | {labels['current_price_label']} |",
                             "|---------|------|",
@@ -1116,9 +1239,9 @@ class NotificationService(
                     # Volume analysis
                     if vol_data:
                         report_lines.extend([
-                            f"**{labels['volume_label']}**: {labels['volume_ratio_label']} {vol_data.get('volume_ratio', 'N/A')} ({vol_data.get('volume_status', '')}) | "
+                            f"**{labels['volume_label']}**: {labels['volume_ratio_label']} {vol_data.get('volume_ratio', 'N/A')} ({self._clean_report_text(vol_data.get('volume_status', ''), report_language)}) | "
                             f"{labels['turnover_rate_label']} {vol_data.get('turnover_rate', 'N/A')}%",
-                            f"💡 *{vol_data.get('volume_meaning', '')}*",
+                            f"💡 *{self._clean_report_text(vol_data.get('volume_meaning', ''), report_language)}*",
                             "",
                         ])
                     # Position structure
@@ -1151,19 +1274,19 @@ class NotificationService(
                             "",
                             f"| {labels['action_points_heading']} | {labels['current_price_label']} |",
                             "|---------|------|",
-                            f"| 🎯 {labels['ideal_buy_label']} | {self._clean_sniper_value(sniper.get('ideal_buy', 'N/A'))} |",
-                            f"| 🔵 {labels['secondary_buy_label']} | {self._clean_sniper_value(sniper.get('secondary_buy', 'N/A'))} |",
-                            f"| 🛑 {labels['stop_loss_label']} | {self._clean_sniper_value(sniper.get('stop_loss', 'N/A'))} |",
-                            f"| 🎊 {labels['take_profit_label']} | {self._clean_sniper_value(sniper.get('take_profit', 'N/A'))} |",
+                            f"| 🎯 {labels['ideal_buy_label']} | {self._clean_report_text(self._clean_sniper_value(sniper.get('ideal_buy', 'N/A')), report_language)} |",
+                            f"| 🔵 {labels['secondary_buy_label']} | {self._clean_report_text(self._clean_sniper_value(sniper.get('secondary_buy', 'N/A')), report_language)} |",
+                            f"| 🛑 {labels['stop_loss_label']} | {self._clean_report_text(self._clean_sniper_value(sniper.get('stop_loss', 'N/A')), report_language)} |",
+                            f"| 🎊 {labels['take_profit_label']} | {self._clean_report_text(self._clean_sniper_value(sniper.get('take_profit', 'N/A')), report_language)} |",
                             "",
                         ])
                     # Position sizing strategy
                     position = battle.get('position_strategy', {})
                     if position:
                         report_lines.extend([
-                            f"**💰 {labels['suggested_position_label']}**: {position.get('suggested_position', 'N/A')}",
-                            f"- {labels['entry_plan_label']}: {position.get('entry_plan', 'N/A')}",
-                            f"- {labels['risk_control_label']}: {position.get('risk_control', 'N/A')}",
+                            f"**💰 {labels['suggested_position_label']}**: {self._clean_report_text(position.get('suggested_position', 'N/A'), report_language)}",
+                            f"- {labels['entry_plan_label']}: {self._clean_report_text(position.get('entry_plan', 'N/A'), report_language)}",
+                            f"- {labels['risk_control_label']}: {self._clean_report_text(position.get('risk_control', 'N/A'), report_language)}",
                             "",
                         ])
                     # Checklist
@@ -1174,7 +1297,7 @@ class NotificationService(
                             "",
                         ])
                         for item in checklist:
-                            report_lines.append(f"- {item}")
+                            report_lines.append(f"- {self._clean_report_text(item, report_language)}")
                         report_lines.append("")
 
                 # Fallback to the legacy format when dashboard data is absent.
@@ -1835,17 +1958,18 @@ class NotificationService(
 
         report_language = self._get_report_language(result)
         labels = get_report_labels(report_language)
+        cell = lambda key: self._clean_report_text(snapshot.get(key, 'N/A'), report_language)
 
         lines.extend([
             f"### 📈 {labels['market_snapshot_heading']}",
             "",
             f"| {labels['close_label']} | {labels['prev_close_label']} | {labels['open_label']} | {labels['high_label']} | {labels['low_label']} | {labels['change_pct_label']} | {labels['change_amount_label']} | {labels['amplitude_label']} | {labels['volume_label']} | {labels['amount_label']} |",
             "|------|------|------|------|------|-------|-------|------|--------|--------|",
-            f"| {snapshot.get('close', 'N/A')} | {snapshot.get('prev_close', 'N/A')} | "
-            f"{snapshot.get('open', 'N/A')} | {snapshot.get('high', 'N/A')} | "
-            f"{snapshot.get('low', 'N/A')} | {snapshot.get('pct_chg', 'N/A')} | "
-            f"{snapshot.get('change_amount', 'N/A')} | {snapshot.get('amplitude', 'N/A')} | "
-            f"{snapshot.get('volume', 'N/A')} | {snapshot.get('amount', 'N/A')} |",
+            f"| {cell('close')} | {cell('prev_close')} | "
+            f"{cell('open')} | {cell('high')} | "
+            f"{cell('low')} | {cell('pct_chg')} | "
+            f"{cell('change_amount')} | {cell('amplitude')} | "
+            f"{cell('volume')} | {cell('amount')} |",
         ])
 
         if "price" in snapshot:
@@ -1854,8 +1978,8 @@ class NotificationService(
                 "",
                 f"| {labels['current_price_label']} | {labels['volume_ratio_label']} | {labels['turnover_rate_label']} | {labels['source_label']} |",
                 "|-------|------|--------|----------|",
-                f"| {snapshot.get('price', 'N/A')} | {snapshot.get('volume_ratio', 'N/A')} | "
-                f"{snapshot.get('turnover_rate', 'N/A')} | {display_source} |",
+                f"| {cell('price')} | {cell('volume_ratio')} | "
+                f"{cell('turnover_rate')} | {display_source} |",
             ])
 
         lines.append("")
@@ -1966,7 +2090,7 @@ class NotificationService(
         report_language = self._get_report_language(result)
         labels = get_report_labels(report_language)
 
-        self._append_financial_summary(lines, blocks, labels)
+        self._append_financial_summary(lines, blocks, labels, report_language)
         self._append_shareholder_return(lines, blocks, labels)
         self._append_related_boards(lines, blocks, labels)
 
@@ -1975,15 +2099,16 @@ class NotificationService(
         lines: List[str],
         blocks: Dict[str, Any],
         labels: Dict[str, str],
+        report_language: Optional[str] = None,
     ) -> None:
         report = blocks.get("financial_report") or {}
         growth = blocks.get("growth") or {}
         currency = report.get("currency") if isinstance(report.get("currency"), str) else None
         cells = {
-            "report_date": self._format_text(report.get("report_date")),
-            "revenue": self._format_amount_cn(report.get("revenue"), currency),
-            "net_profit": self._format_amount_cn(report.get("net_profit_parent"), currency),
-            "operating_cash_flow": self._format_amount_cn(report.get("operating_cash_flow"), currency),
+            "report_date": self._clean_report_text(self._format_text(report.get("report_date")), report_language),
+            "revenue": self._clean_report_text(self._format_amount_cn(report.get("revenue"), currency), report_language),
+            "net_profit": self._clean_report_text(self._format_amount_cn(report.get("net_profit_parent"), currency), report_language),
+            "operating_cash_flow": self._clean_report_text(self._format_amount_cn(report.get("operating_cash_flow"), currency), report_language),
             "roe": self._format_percent(report.get("roe") if report.get("roe") is not None else growth.get("roe")),
             "revenue_yoy": self._format_percent(growth.get("revenue_yoy")),
             "net_profit_yoy": self._format_percent(growth.get("net_profit_yoy")),

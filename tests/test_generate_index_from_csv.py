@@ -84,6 +84,14 @@ class TestDetermineMarket:
         result = determine_market("00700.HK")
         assert result == "HK"
 
+    def test_kr_stock_ks(self):
+        result = determine_market("005930.KS")
+        assert result == "KR"
+
+    def test_kr_stock_kq(self):
+        result = determine_market("086520.KQ")
+        assert result == "KR"
+
     def test_bse_stock(self):
         """测试北交所"""
         result = determine_market("832566.BJ")
@@ -451,6 +459,28 @@ class TestIntegration:
         # 验证字段数量
         for item in compressed:
             assert len(item) == 10
+
+    def test_korean_stock_csv_builds_kr_index_entry(self, tmp_path):
+        kr_csv = tmp_path / 'stock_list_kr.csv'
+        with open(kr_csv, 'w', encoding='utf-8-sig', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['ts_code', 'symbol', 'name', 'market'])
+            writer.writeheader()
+            writer.writerow({
+                'ts_code': '005930.KS',
+                'symbol': '005930',
+                'name': '삼성전자',
+                'market': 'KOSPI',
+            })
+
+        stocks = load_tushare_data(tmp_path)
+        assert len(stocks) == 1
+
+        index = build_stock_index(stocks)
+        assert index[0]['canonicalCode'] == 'KR005930'
+        assert index[0]['displayCode'] == '005930'
+        assert index[0]['nameZh'] == '삼성전자'
+        assert index[0]['market'] == 'KR'
+        assert '005930.KS' in index[0]['aliases']
 
     def test_market_distribution(self, tmp_path):
         """测试市场分布统计"""

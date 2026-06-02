@@ -12,6 +12,7 @@ Responsibilities:
 from __future__ import annotations
 import json
 import logging
+import re
 from datetime import date, datetime, timedelta
 from typing import Optional, Dict, Any, List, Tuple, TYPE_CHECKING
 
@@ -38,6 +39,24 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_KO_LEGACY_REPORT_NOTICE = (
+    "이 기록은 한국어 출력 정리 전에 생성된 이전 형식 리포트입니다. "
+    "중국어 문구가 섞여 있을 수 있어 본문 표시를 막았습니다. "
+    "현재 설정으로 다시 분석하면 한국어 리포트가 생성됩니다."
+)
+
+_LEGACY_KO_EXACT_REPLACEMENTS = {
+    "大盘复盘": "시장 리뷰",
+    "查看复盘": "리뷰 보기",
+    "观望/持有": "관망/보유",
+    "三星电子（005930）": "삼성전자",
+    "三星电子": "삼성전자",
+    "观望": "관망",
+    "持有": "보유",
+    "买入": "매수",
+    "卖出": "매도",
+}
+
 
 class MarkdownReportGenerationError(Exception):
     """Exception raised when Markdown report generation fails due to internal errors."""
@@ -63,6 +82,96 @@ class HistoryService:
             db_manager: Database manager (optional, defaults to singleton instance)
         """
         self.db = db_manager or DatabaseManager.get_instance()
+
+    @staticmethod
+    def _repair_legacy_encoding(value: Any) -> str:
+        text = str(value or "").strip()
+        if not text:
+            return text
+        try:
+            repaired = text.encode("latin1").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            return text
+        return repaired if repaired else text
+
+    @classmethod
+    def _clean_ko_legacy_value(cls, value: Any) -> str:
+        text = cls._repair_legacy_encoding(value)
+        for source, target in _LEGACY_KO_EXACT_REPLACEMENTS.items():
+            text = text.replace(source, target)
+        return text
+
+    @classmethod
+    def _contains_chinese_text(cls, value: Any) -> bool:
+        text = cls._repair_legacy_encoding(value)
+        return bool(re.search(r"[\u4e00-\u9fff]", text))
+
+    @classmethod
+    def _contains_chinese_in_mapping(cls, value: Any, *, max_depth: int = 3) -> bool:
+        if max_depth < 0 or value is None:
+            return False
+        if isinstance(value, str):
+            return cls._contains_chinese_text(value)
+        if isinstance(value, dict):
+            return any(cls._contains_chinese_in_mapping(item, max_depth=max_depth - 1) for item in value.values())
+        if isinstance(value, (list, tuple, set)):
+            return any(cls._contains_chinese_in_mapping(item, max_depth=max_depth - 1) for item in value)
+        return False
+
+    @classmethod
+    def _is_legacy_for_display(cls, record, report_language: Optional[str], raw_result: Any = None) -> bool:
+        if cls._is_legacy_record(record, report_language):
+            return True
+        if (
+            normalize_report_language(report_language) == "ko"
+            and isinstance(raw_result, dict)
+            and isinstance(raw_result.get("dashboard"), dict)
+        ):
+            return False
+        if getattr(record, "report_type", None) == "market_review":
+            content = cls._extract_market_review_content(record, raw_result)
+            return cls._contains_chinese_text(content)
+        record_values = (
+            getattr(record, "name", None),
+            getattr(record, "operation_advice", None),
+            getattr(record, "trend_prediction", None),
+            getattr(record, "analysis_summary", None),
+            getattr(record, "news_content", None),
+            getattr(record, "ideal_buy", None),
+            getattr(record, "secondary_buy", None),
+            getattr(record, "stop_loss", None),
+            getattr(record, "take_profit", None),
+        )
+        if any(cls._contains_chinese_text(value) for value in record_values):
+            return True
+        if isinstance(raw_result, dict):
+            keys_to_scan = (
+                "analysis_summary",
+                "news_summary",
+                "trend_prediction",
+                "operation_advice",
+                "dashboard",
+                "sector_position",
+                "company_highlights",
+                "market_sentiment",
+                "hot_topics",
+            )
+            return any(cls._contains_chinese_in_mapping(raw_result.get(key)) for key in keys_to_scan)
+        return False
+
+    @staticmethod
+    def _current_report_language() -> str:
+        try:
+            return normalize_report_language(getattr(get_config(), "report_language", "zh"))
+        except Exception:
+            return "zh"
+
+    @classmethod
+    def _display_language_for_record(cls, record, report_language: Optional[str] = None) -> str:
+        current_language = cls._current_report_language()
+        if current_language == "ko":
+            return "ko"
+        return normalize_report_language(report_language or "zh")
 
     @staticmethod
     def _get_record_report_language(record) -> Optional[str]:
@@ -137,16 +246,31 @@ class HistoryService:
             items = []
             for record in records:
                 report_language = self._get_record_report_language(record)
+                raw_result = parse_json_field(getattr(record, "raw_result", None))
+                display_language = self._display_language_for_record(record, report_language)
+                is_legacy = self._is_legacy_for_display(record, report_language, raw_result)
+                stock_name = record.name
+                operation_advice = record.operation_advice
+                if display_language == "ko":
+                    stock_name = get_localized_stock_name(
+                        self._clean_ko_legacy_value(record.name),
+                        record.code,
+                        display_language,
+                    )
+                    operation_advice = localize_operation_advice(
+                        self._clean_ko_legacy_value(record.operation_advice),
+                        display_language,
+                    )
                 items.append({
                     "id": record.id,
                     "query_id": record.query_id,
                     "stock_code": record.code,
-                    "stock_name": record.name,
+                    "stock_name": stock_name,
                     "report_type": record.report_type,
-                    "report_language": report_language,
-                    "is_legacy": self._is_legacy_record(record, report_language),
+                    "report_language": display_language,
+                    "is_legacy": is_legacy,
                     "sentiment_score": record.sentiment_score,
-                    "operation_advice": record.operation_advice,
+                    "operation_advice": operation_advice,
                     "created_at": record.created_at.isoformat() if record.created_at else None,
                 })
 
@@ -233,6 +357,29 @@ class HistoryService:
         record = self._resolve_record(record_id)
         if not record:
             return None
+
+        report_language = self._display_language_for_record(
+            record,
+            self._get_record_report_language(record),
+        )
+        raw_result = parse_json_field(getattr(record, "raw_result", None))
+        if report_language == "ko" and self._is_legacy_for_display(
+            record,
+            self._get_record_report_language(record),
+            raw_result,
+        ):
+            return {
+                "trace_id": None,
+                "task_id": None,
+                "query_id": getattr(record, "query_id", None),
+                "stock_code": getattr(record, "code", None),
+                "trigger_source": None,
+                "status": "unknown",
+                "status_label": "이전 형식",
+                "reason": _KO_LEGACY_REPORT_NOTICE,
+                "components": {},
+                "copy_text": _KO_LEGACY_REPORT_NOTICE,
+            }
 
         return build_run_diagnostic_summary(
             context_snapshot=self._parse_diagnostic_json_field(
@@ -347,27 +494,70 @@ class HistoryService:
                 context_snapshot = record.context_snapshot
 
         market_review_content = None
+        report_language = self._display_language_for_record(
+            record,
+            self._get_record_report_language(record),
+        )
+        is_legacy_display = self._is_legacy_for_display(
+            record,
+            self._get_record_report_language(record),
+            raw_result,
+        )
         if getattr(record, "report_type", None) == "market_review":
             market_review_content = self._extract_market_review_content(record, raw_result)
+            if report_language == "ko" and is_legacy_display:
+                market_review_content = _KO_LEGACY_REPORT_NOTICE
+
+        stock_name = record.name
+        operation_advice = record.operation_advice
+        trend_prediction = record.trend_prediction
+        if report_language == "ko":
+            stock_name = get_localized_stock_name(
+                self._clean_ko_legacy_value(record.name),
+                record.code,
+                report_language,
+            )
+            operation_advice = localize_operation_advice(
+                self._clean_ko_legacy_value(record.operation_advice),
+                report_language,
+            )
+            trend_prediction = localize_trend_prediction(
+                self._clean_ko_legacy_value(record.trend_prediction),
+                report_language,
+            )
+        analysis_summary = market_review_content or record.analysis_summary
+        news_content = market_review_content or record.news_content
+        if report_language == "ko" and is_legacy_display:
+            analysis_summary = _KO_LEGACY_REPORT_NOTICE
+            news_content = _KO_LEGACY_REPORT_NOTICE
+            sniper_points = {
+                "ideal_buy": None,
+                "secondary_buy": None,
+                "stop_loss": None,
+                "take_profit": None,
+            }
+            raw_result = None
+            context_snapshot = None
 
         return {
             "id": record.id,
             "query_id": record.query_id,
             "stock_code": record.code,
-            "stock_name": record.name,
+            "stock_name": stock_name,
             "report_type": record.report_type,
+            "report_language": report_language,
             "created_at": record.created_at.isoformat() if record.created_at else None,
             "model_used": model_used,
-            "analysis_summary": market_review_content or record.analysis_summary,
-            "operation_advice": record.operation_advice,
-            "trend_prediction": record.trend_prediction,
+            "analysis_summary": analysis_summary,
+            "operation_advice": operation_advice,
+            "trend_prediction": trend_prediction,
             "sentiment_score": record.sentiment_score,
             "sentiment_label": self._get_sentiment_label(record.sentiment_score or 50),
             "ideal_buy": sniper_points.get("ideal_buy"),
             "secondary_buy": sniper_points.get("secondary_buy"),
             "stop_loss": sniper_points.get("stop_loss"),
             "take_profit": sniper_points.get("take_profit"),
-            "news_content": market_review_content or record.news_content,
+            "news_content": news_content,
             "raw_result": raw_result,
             "context_snapshot": context_snapshot,
         }
@@ -558,6 +748,16 @@ class HistoryService:
             )
 
         if getattr(record, "report_type", None) == "market_review":
+            report_language = self._display_language_for_record(
+                record,
+                self._get_record_report_language(record),
+            )
+            if report_language == "ko" and self._is_legacy_for_display(
+                record,
+                self._get_record_report_language(record),
+                raw_result,
+            ):
+                return _KO_LEGACY_REPORT_NOTICE
             markdown_report = self._extract_market_review_content(record, raw_result)
             if markdown_report:
                 return markdown_report

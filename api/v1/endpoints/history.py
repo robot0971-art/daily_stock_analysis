@@ -106,6 +106,8 @@ def get_history_list(
                 stock_code=item.get("stock_code", ""),
                 stock_name=item.get("stock_name"),
                 report_type=item.get("report_type"),
+                report_language=item.get("report_language"),
+                is_legacy=item.get("is_legacy"),
                 sentiment_score=item.get("sentiment_score"),
                 operation_advice=item.get("operation_advice"),
                 created_at=item.get("created_at")

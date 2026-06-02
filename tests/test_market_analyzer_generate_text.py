@@ -206,6 +206,24 @@ class TestAnalyzerGenerateText:
             {"x-tenant": "legacy-b"},
         ]
 
+    def test_call_litellm_passes_request_timeout_to_litellm(self, monkeypatch):
+        monkeypatch.setenv("LLM_REQUEST_TIMEOUT_SECONDS", "17")
+        analyzer = self._make_analyzer()
+        captured = {}
+
+        def _fake_call_litellm_with_param_recovery(call, **kwargs):
+            captured["call_kwargs"] = kwargs.get("call_kwargs")
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
+                usage=None,
+            )
+
+        with patch("src.analyzer.call_litellm_with_param_recovery", side_effect=_fake_call_litellm_with_param_recovery):
+            text, _, _ = analyzer._call_litellm("timeout case", {"max_tokens": 128, "temperature": 0.7})
+
+        assert text == "ok"
+        assert captured["call_kwargs"]["timeout"] == 17.0
+
     @patch("src.analyzer.Router")
     def test_analyzer_legacy_router_recovery_cache_is_scoped_by_api_base(self, mock_router):
         """Analyzer legacy recovery should not leak across same model different api_base."""
@@ -285,17 +303,23 @@ class TestAnalyzerGenerateText:
         assert "temperature" not in strict_router.completion.call_args_list[1].kwargs
         assert flex_router.completion.call_args.kwargs["temperature"] == 0.2
 
-    def test_call_litellm_stream_falls_back_to_non_stream_before_first_chunk(self):
+    def test_call_litellm_stream_skips_same_model_non_stream_before_first_chunk(self):
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(
-            litellm_model="gemini/gemini-2.0-flash",
-            litellm_fallback_models=[],
+            litellm_model="provider/bad-stream-model",
+            litellm_fallback_models=["provider/good-model"],
             llm_model_list=[],
         )
 
         def broken_stream():
             raise RuntimeError("stream unsupported")
             yield  # pragma: no cover
+
+        def good_stream():
+            yield SimpleNamespace(
+                choices=[SimpleNamespace(delta=SimpleNamespace(content="fallback stream"))],
+                usage=SimpleNamespace(prompt_tokens=4, completion_tokens=5, total_tokens=9),
+            )
 
         response = SimpleNamespace(
             choices=[SimpleNamespace(message=SimpleNamespace(content="full response"))],
@@ -305,9 +329,11 @@ class TestAnalyzerGenerateText:
         dispatch_calls = []
 
         def fake_dispatch(model, call_kwargs, **kwargs):
-            dispatch_calls.append(call_kwargs.copy())
-            if call_kwargs.get("stream"):
+            dispatch_calls.append((model, bool(call_kwargs.get("stream"))))
+            if model == "provider/bad-stream-model":
                 return broken_stream()
+            if call_kwargs.get("stream"):
+                return good_stream()
             return response
 
         with patch.object(analyzer, "_dispatch_litellm_completion", side_effect=fake_dispatch):
@@ -317,12 +343,43 @@ class TestAnalyzerGenerateText:
                 stream=True,
             )
 
-        assert text == "full response"
-        assert model == "gemini/gemini-2.0-flash"
+        assert text == "fallback stream"
+        assert model == "provider/good-model"
         assert usage == {"prompt_tokens": 4, "completion_tokens": 5, "total_tokens": 9}
-        assert len(dispatch_calls) == 2
-        assert dispatch_calls[0]["stream"] is True
-        assert "stream" not in dispatch_calls[1]
+        assert dispatch_calls == [
+            ("provider/bad-stream-model", True),
+            ("provider/good-model", True),
+        ]
+
+    def test_call_litellm_stream_empty_response_fails_without_same_model_retry(self):
+        from src.analyzer import _AllModelsFailedError
+
+        analyzer = self._make_analyzer()
+        analyzer._config_override = SimpleNamespace(
+            litellm_model="provider/bad-stream-model",
+            litellm_fallback_models=[],
+            llm_model_list=[],
+        )
+
+        def broken_stream():
+            raise RuntimeError("stream unsupported")
+            yield  # pragma: no cover
+
+        dispatch_calls = []
+
+        def fake_dispatch(model, call_kwargs, **kwargs):
+            dispatch_calls.append((model, bool(call_kwargs.get("stream"))))
+            return broken_stream()
+
+        with patch.object(analyzer, "_dispatch_litellm_completion", side_effect=fake_dispatch):
+            with pytest.raises(_AllModelsFailedError):
+                analyzer._call_litellm(
+                    "prompt",
+                    {"max_tokens": 128, "temperature": 0.2},
+                    stream=True,
+                )
+
+        assert dispatch_calls == [("provider/bad-stream-model", True)]
 
     @pytest.mark.parametrize(
         "provider_model,response_payload,expected_text",

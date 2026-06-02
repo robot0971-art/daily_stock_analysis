@@ -27,6 +27,21 @@ from typing import List, Dict, Any, Optional
 # Add the project root to sys.path.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.data.stock_mapping import STOCK_NAME_MAP
+
+COMPRESSED_FIELDS = [
+    "canonicalCode",
+    "displayCode",
+    "nameZh",
+    "pinyinFull",
+    "pinyinAbbr",
+    "aliases",
+    "market",
+    "assetType",
+    "active",
+    "popularity",
+]
+
 try:
     from pypinyin import lazy_pinyin, Style
     PYPINYIN_AVAILABLE = True
@@ -97,6 +112,7 @@ def load_tushare_data(data_dir: Path) -> List[Dict[str, Any]]:
         'CN': data_dir / 'stock_list_a.csv',
         'HK': data_dir / 'stock_list_hk.csv',
         'US': data_dir / 'stock_list_us.csv',
+        'KR': data_dir / 'stock_list_kr.csv',
     }
 
     for market_name, csv_file in market_files.items():
@@ -410,6 +426,8 @@ def determine_market(ts_code: str) -> str:
             return 'HK'
         elif suffix == 'BJ':
             return 'BSE'
+        elif suffix in ['KS', 'KQ']:
+            return 'KR'
         # 有后缀但不是中国市场后缀，检查是否为美股
         # 美股可能有点号后缀（如 BRK.B, GOOG.A, AAPL.U）
         prefix = ts_code.split('.')[0]
@@ -509,6 +527,106 @@ def generate_aliases(name: str, market: str) -> List[str]:
     return aliases
 
 
+def _has_hangul(value: str) -> bool:
+    return any('\uac00' <= char <= '\ud7a3' for char in value)
+
+
+def _dedupe_preserve_order(values: List[str]) -> List[str]:
+    seen = set()
+    deduped = []
+    for value in values:
+        if value and value not in seen:
+            seen.add(value)
+            deduped.append(value)
+    return deduped
+
+
+def _korean_stock_aliases(symbol: str, suffix: str, name: str) -> List[str]:
+    aliases = [
+        f"{symbol}.{suffix}",
+        f"{suffix}{symbol}",
+        f"KR{symbol}",
+    ]
+
+    common_aliases = {
+        "삼성전자": ["삼전"],
+        "SK하이닉스": ["하이닉스", "SK하닉"],
+        "NAVER": ["네이버"],
+        "카카오": [],
+        "LG에너지솔루션": ["LG엔솔", "엘지에너지솔루션"],
+        "현대차": ["현대자동차"],
+        "기아": ["기아차"],
+        "셀트리온": [],
+        "삼성바이오로직스": ["삼바"],
+        "POSCO홀딩스": ["포스코홀딩스", "포스코"],
+    }
+    aliases.extend(common_aliases.get(name, []))
+    return _dedupe_preserve_order(aliases)
+
+
+def build_korean_stock_index() -> List[Dict[str, Any]]:
+    """Build KR autocomplete entries from the local stock name mapping."""
+    index = []
+    seen_symbols = set()
+
+    for code, name in STOCK_NAME_MAP.items():
+        if not code.endswith((".KS", ".KQ")):
+            continue
+
+        symbol, suffix = code.split(".", 1)
+        if not re.fullmatch(r"\d{6}", symbol):
+            continue
+        if symbol in seen_symbols:
+            continue
+
+        name = str(name).strip()
+        if not name:
+            continue
+        if not (_has_hangul(name) or name.isascii()):
+            continue
+
+        pinyin_full, pinyin_abbr = generate_pinyin(name)
+        seen_symbols.add(symbol)
+        index.append({
+            "canonicalCode": f"KR{symbol}",
+            "displayCode": symbol,
+            "nameZh": name,
+            "pinyinFull": pinyin_full,
+            "pinyinAbbr": pinyin_abbr,
+            "aliases": _korean_stock_aliases(symbol, suffix, name),
+            "market": "KR",
+            "assetType": "stock",
+            "active": True,
+            "popularity": 140 if symbol == "005930" else 120,
+        })
+
+    return index
+
+
+def load_existing_index(output_path: Path) -> List[Dict[str, Any]]:
+    """Load an existing compressed index when CSV files are unavailable."""
+    if not output_path.is_file():
+        return []
+
+    with open(output_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    if isinstance(data, dict):
+        rows = data.get("data", [])
+        fields = data.get("fields", COMPRESSED_FIELDS)
+    else:
+        rows = data
+        fields = COMPRESSED_FIELDS
+
+    index = []
+    for row in rows:
+        if isinstance(row, dict):
+            index.append(row)
+        elif isinstance(row, list):
+            index.append(dict(zip(fields, row)))
+    return index
+
+
 def build_stock_index(stocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Build the stock index.
@@ -537,9 +655,12 @@ def build_stock_index(stocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         # Generate aliases.
         aliases = generate_aliases(name, market)
 
+        canonical_code = f"KR{symbol}" if market == "KR" else ts_code
+        aliases = _korean_stock_aliases(symbol, ts_code.split(".")[1], name) if market == "KR" and "." in ts_code else aliases
+
         index.append({
-            "canonicalCode": ts_code,    # Example: 000001.SZ, AAPL
-            "displayCode": symbol,       # Example: 000001, AAPL
+            "canonicalCode": canonical_code,    # Example: 000001.SZ, KR005930, AAPL
+            "displayCode": symbol,       # Example: 000001, 005930, AAPL
             "nameZh": name,
             "pinyinFull": pinyin_full,
             "pinyinAbbr": pinyin_abbr,
@@ -604,6 +725,11 @@ def main():
     if not require_pypinyin():
         return 1
 
+    output_path = (
+        Path(__file__).parent.parent / "apps" / "dsa-web" / "public" / "stocks.index.json"
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
     # 加载数据
     print("\n[1/5] 读取 CSV 数据...")
     if args.source == 'tushare':
@@ -616,20 +742,24 @@ def main():
         print(f"[Error] 不支持的数据源：{args.source}")
         return 1
 
+    existing_index = load_existing_index(output_path)
     if not stocks:
-        print("[Error] 未加载到任何股票数据")
-        return 1
-
-    print(f"      共读取 {len(stocks)} 只股票")
+        if not existing_index:
+            print("[Error] 未加载到任何股票数据")
+            return 1
+        print(f"      No CSV rows loaded; preserving existing index rows: {len(existing_index)}")
+    else:
+        print(f"      共读取 {len(stocks)} 只股票")
 
     print("\n[2/5] 生成索引数据...")
-    index = build_stock_index(stocks)
-
-    # 输出路径
-    output_path = (
-        Path(__file__).parent.parent / "apps" / "dsa-web" / "public" / "stocks.index.json"
-    )
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    refreshed_markets = {stock.get("market", "CN") for stock in stocks}
+    index = [item for item in existing_index if item.get("market") not in refreshed_markets]
+    index.extend(build_stock_index(stocks))
+    korean_index = build_korean_stock_index()
+    if korean_index:
+        existing_codes = {item["canonicalCode"] for item in index}
+        index.extend(item for item in korean_index if item["canonicalCode"] not in existing_codes)
+        print(f"      Added Korean stock mappings: {len(korean_index)}")
 
     print("\n[3/5] 压缩索引数据...")
     compressed = compress_index(index)

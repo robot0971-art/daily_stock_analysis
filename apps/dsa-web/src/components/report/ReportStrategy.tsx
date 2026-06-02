@@ -3,6 +3,7 @@ import type { ReportLanguage, ReportStrategy as ReportStrategyType } from '../..
 import { Card } from '../common';
 import { DashboardPanelHeader } from '../dashboard';
 import { getReportText, normalizeReportLanguage } from '../../utils/reportLanguage';
+import { localizeLegacyText } from '../../utils/legacyKoreanText';
 
 interface ReportStrategyProps {
   strategy?: ReportStrategyType;
@@ -47,22 +48,22 @@ export const ReportStrategy: React.FC<ReportStrategyProps> = ({ strategy, langua
   const strategyItems = [
     {
       label: text.idealBuy,
-      value: strategy.idealBuy,
+      value: localizeLegacyText(strategy.idealBuy),
       tone: '--home-strategy-buy',
     },
     {
       label: text.secondaryBuy,
-      value: strategy.secondaryBuy,
+      value: localizeLegacyText(strategy.secondaryBuy),
       tone: '--home-strategy-secondary',
     },
     {
       label: text.stopLoss,
-      value: strategy.stopLoss,
+      value: localizeLegacyText(strategy.stopLoss),
       tone: '--home-strategy-stop',
     },
     {
       label: text.takeProfit,
-      value: strategy.takeProfit,
+      value: localizeLegacyText(strategy.takeProfit),
       tone: '--home-strategy-take',
     },
   ];

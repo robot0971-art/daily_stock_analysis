@@ -31,6 +31,35 @@ const COMPONENT_ORDER = [
 ];
 
 const TEXT = {
+  ko: {
+    eyebrow: '실행 진단',
+    title: '데이터 신뢰도',
+    loading: '진단 정보를 불러오는 중...',
+    unavailable: '진단 정보를 사용할 수 없습니다',
+    noComponents: '세부 진단 정보가 없습니다',
+    components: '주요 경로',
+    advanced: '추가 정보',
+    copy: '진단 복사',
+    copied: '복사됨',
+    trace: 'Trace',
+    task: 'Task',
+    query: 'Query',
+    trigger: '실행 원인',
+    overall: {
+      normal: '정상',
+      degraded: '확인 필요',
+      failed: '실패',
+      unknown: '알 수 없음',
+    },
+    component: {
+      ok: '정상',
+      degraded: '확인 필요',
+      failed: '실패',
+      unknown: '알 수 없음',
+      not_configured: '미설정',
+      skipped: '건너뜀',
+    },
+  },
   zh: {
     eyebrow: '运行诊断',
     title: '数据可靠性',
@@ -134,7 +163,7 @@ export const ReportDiagnostics: React.FC<ReportDiagnosticsProps> = ({
   language = 'zh',
 }) => {
   const reportLanguage = normalizeReportLanguage(language);
-  const text = TEXT[reportLanguage === 'en' ? 'en' : 'zh'];
+  const text = TEXT[reportLanguage];
   const [fetchState, setFetchState] = useState<{
     recordId?: number;
     summary: RunDiagnosticSummary | null;

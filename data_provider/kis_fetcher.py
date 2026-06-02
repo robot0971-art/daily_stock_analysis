@@ -195,7 +195,8 @@ class KisFetcher(BaseFetcher):
             volume=safe_int(output.get("acml_vol")),
             amount=safe_float(output.get("acml_tr_pbmn")),
             volume_ratio=safe_float(output.get("vol_tnrt")),
-            turnover_rate=safe_float(output.get("hts_avls")),
+            # KIS hts_avls is market capitalization, not turnover rate.
+            turnover_rate=None,
             open_price=safe_float(output.get("stck_oprc")),
             high=safe_float(output.get("stck_hgpr")),
             low=safe_float(output.get("stck_lwpr")),

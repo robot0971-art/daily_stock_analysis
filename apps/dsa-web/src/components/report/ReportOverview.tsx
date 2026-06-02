@@ -29,6 +29,7 @@ export const ReportOverview: React.FC<ReportOverviewProps> = ({
   const displaySummary = localizeLegacyText(summary.analysisSummary);
   const displayAdvice = localizeLegacyText(summary.operationAdvice);
   const displayTrend = localizeLegacyText(summary.trendPrediction);
+  const isLegacyNotice = displaySummary.includes('이전 형식 리포트');
 
   const getPriceChangeStyle = (changePct: number | undefined): React.CSSProperties | undefined => {
     if (changePct === undefined || changePct === null) {
@@ -63,7 +64,7 @@ export const ReportOverview: React.FC<ReportOverviewProps> = ({
     return `${sign}${changePct.toFixed(2)}%`;
   };
 
-  const relatedBoards = (details?.belongBoards ?? [])
+  const relatedBoards = isLegacyNotice ? [] : (details?.belongBoards ?? [])
     .map((board) => ({
       ...board,
       name: localizeLegacyText((board.name ?? '').trim()),
@@ -71,10 +72,10 @@ export const ReportOverview: React.FC<ReportOverviewProps> = ({
     }))
     .filter((board) => board.name);
 
-  const topRankings = Array.isArray(details?.sectorRankings?.top)
+  const topRankings = !isLegacyNotice && Array.isArray(details?.sectorRankings?.top)
     ? details.sectorRankings.top
     : [];
-  const bottomRankings = Array.isArray(details?.sectorRankings?.bottom)
+  const bottomRankings = !isLegacyNotice && Array.isArray(details?.sectorRankings?.bottom)
     ? details.sectorRankings.bottom
     : [];
   const rankingItems = [

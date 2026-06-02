@@ -38,6 +38,15 @@ _VALID_MARKET_REVIEW_REGIONS = frozenset(_MARKET_REVIEW_REGION_ORDER)
 
 def _get_market_review_text(language: str) -> dict[str, str]:
     normalized = normalize_report_language(language)
+    if normalized == "ko":
+        return {
+            "root_title": "# 시장 리뷰",
+            "push_title": "시장 리뷰",
+            "cn_title": "# 중국 시장 리뷰",
+            "us_title": "# 미국 시장 리뷰",
+            "hk_title": "# 홍콩 시장 리뷰",
+            "separator": "> 다음 시장 리뷰입니다",
+        }
     if normalized == "en":
         return {
             "root_title": "# 🎯 Market Review",
@@ -203,6 +212,10 @@ def _persist_market_review_history(
             stock_name = "Market Review"
             operation_advice = "View review"
             trend_prediction = "Market review"
+        elif report_language == "ko":
+            stock_name = "시장 리뷰"
+            operation_advice = "리뷰 보기"
+            trend_prediction = "시장 리뷰"
         else:
             stock_name = "大盘复盘"
             operation_advice = "查看复盘"

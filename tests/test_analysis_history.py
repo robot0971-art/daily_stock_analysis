@@ -946,6 +946,54 @@ class AnalysisHistoryTestCase(unittest.TestCase):
         self.assertFalse(by_code["AAPL"]["is_legacy"])
         self.assertEqual(by_code["AAPL"]["report_language"], "en")
 
+    def test_ko_dashboard_history_keeps_structured_data_even_with_mixed_text(self) -> None:
+        """Korean reports should not hide dashboard data just because some model text is mixed-language."""
+        result = AnalysisResult(
+            code="KR000660",
+            name="SK하이닉스",
+            sentiment_score=59,
+            trend_prediction="긍정",
+            operation_advice="Hold and watch",
+            analysis_summary="한국어 요약",
+            report_language="ko",
+            dashboard={
+                "core_conclusion": {
+                    "one_sentence": "观望: 일부 모델 문구가 섞였지만 최신 리포트입니다.",
+                },
+                "battle_plan": {
+                    "sniper_points": {
+                        "ideal_buy": "이상적 진입 230,000원",
+                        "secondary_buy": "보조 진입 220,000원",
+                        "stop_loss": "손절가 210,000원",
+                        "take_profit": "목표가 260,000원",
+                    }
+                },
+                "data_perspective": {
+                    "price_position": {
+                        "current_price": 236000.0,
+                    }
+                },
+            },
+            current_price=236000.0,
+            change_pct=-0.13,
+        )
+        saved = self.db.save_analysis_history(
+            result=result,
+            query_id="query_ko_mixed_dashboard_001",
+            report_type="full",
+            news_content="뉴스",
+            context_snapshot=None,
+            save_snapshot=False,
+        )
+        self.assertEqual(saved, 1)
+
+        detail = HistoryService(self.db).resolve_and_get_detail("query_ko_mixed_dashboard_001")
+
+        self.assertIsInstance(detail["raw_result"], dict)
+        self.assertEqual(detail["ideal_buy"], "이상적 진입 230,000원")
+        self.assertEqual(detail["stop_loss"], "손절가 210,000원")
+        self.assertEqual(detail["raw_result"]["current_price"], 236000.0)
+
     def test_history_markdown_uses_safe_bias_emoji_for_english_status(self) -> None:
         """English bias status should keep the correct non-risk emoji in markdown."""
         result = AnalysisResult(
