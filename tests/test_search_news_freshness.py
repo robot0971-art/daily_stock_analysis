@@ -620,6 +620,7 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         cases = (
             ("00700.HK", {"00700", "HK00700"}),
             ("600519.SH", {"600519", "600519.SH"}),
+            ("005930.KS", {"005930", "005930.KS", "KR005930", "KRX:005930"}),
             ("AAPL.US", {"AAPL", "NASDAQ:AAPL", "NYSE:AAPL"}),
         )
         for stock_code, expected_terms in cases:
@@ -627,12 +628,54 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
                 terms = set(SearchService._stock_code_identity_terms(stock_code))
                 self.assertTrue(expected_terms.issubset(terms))
 
+    def test_korean_stock_does_not_prefer_chinese_news(self) -> None:
+        """KRX symbols should use Korean/default search handling, not A-share Chinese bias."""
+        self.assertFalse(SearchService._is_foreign_stock("005930.KS"))
+        self.assertFalse(SearchService._should_prefer_chinese_news("005930.KS", "삼성전자"))
+
+    def test_search_stock_news_uses_korean_query_for_krx_symbol(self) -> None:
+        """KRX stock news search should include Korean market/news terms."""
+        fresh = datetime.now().date().isoformat()
+        service = SearchService(
+            bocha_keys=["dummy_key"],
+            searxng_public_instances_enabled=False,
+            news_max_age_days=3,
+            news_strategy_profile="short",
+        )
+        provider = SimpleNamespace(
+            is_available=True,
+            name="KRProvider",
+            search=MagicMock(
+                return_value=_response(
+                    [
+                        _result(
+                            "삼성전자 KRX 공시 실적 발표",
+                            fresh,
+                            snippet="삼성전자가 분기 실적과 주가 흐름을 발표했다.",
+                        )
+                    ]
+                )
+            ),
+        )
+        service._providers = [provider]
+
+        resp = service.search_stock_news("005930.KS", "삼성전자", max_results=1)
+
+        query = provider.search.call_args[0][0]
+        self.assertIn("삼성전자", query)
+        self.assertIn("005930", query)
+        self.assertIn("KRX", query)
+        self.assertIn("뉴스", query)
+        self.assertNotIn("股票", query)
+        self.assertEqual(resp.results[0].title, "삼성전자 KRX 공시 실적 발표")
+
     def test_suffixed_market_codes_score_canonical_code_hits_as_direct(self) -> None:
         """Canonical code hits from suffixed inputs should be direct company news."""
         fresh = datetime.now().date().isoformat()
         cases = (
             ("00700.HK", "HK00700 announces buyback"),
             ("600519.SH", "600519 发布回购公告"),
+            ("005930.KS", "삼성전자 005930 실적 발표"),
             ("AAPL.US", "AAPL announces quarterly results"),
         )
         for stock_code, title in cases:

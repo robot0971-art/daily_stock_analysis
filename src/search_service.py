@@ -2271,6 +2271,8 @@ class SearchService:
     def _is_foreign_stock(stock_code: str) -> bool:
         """判断是否为港股或美股"""
         code = stock_code.strip()
+        if SearchService._is_korean_stock(code):
+            return False
         # 美股：1-5个大写字母，可能包含点（如 BRK.B）
         if SearchService._US_STOCK_RE.match(code):
             return True
@@ -2279,6 +2281,17 @@ class SearchService:
         if lower.startswith('hk'):
             return True
         if code.isdigit() and len(code) == 5:
+            return True
+        return False
+
+    @staticmethod
+    def _is_korean_stock(stock_code: str) -> bool:
+        """Return True for KRX/KOSDAQ symbols such as 005930.KS or KQ091990."""
+        code = (stock_code or "").strip().upper()
+        if "." in code:
+            base, suffix = code.rsplit(".", 1)
+            return suffix in {"KS", "KQ"} and base.isdigit() and len(base) == 6
+        if code.startswith(("KR", "KS", "KQ")) and code[2:].isdigit() and len(code[2:]) == 6:
             return True
         return False
 
@@ -2313,6 +2326,8 @@ class SearchService:
             return True
         # Positive A-stock identification: 6-digit numeric codes (e.g. 600519)
         code = (stock_code or "").strip()
+        if cls._is_korean_stock(code):
+            return False
         return code.isdigit() and len(code) == 6
 
     @classmethod
@@ -2512,6 +2527,8 @@ class SearchService:
                 code_for_variants = f"HK{base.zfill(5)}"
             elif suffix in {"SH", "SZ", "SS", "BJ"} and base.isdigit() and len(base) == 6:
                 code_for_variants = base
+            elif suffix in {"KS", "KQ"} and base.isdigit() and len(base) == 6:
+                code_for_variants = upper
             elif suffix == "US" and re.fullmatch(r"[A-Z]{1,5}", base):
                 code_for_variants = base
 
@@ -2542,6 +2559,18 @@ class SearchService:
         if code_for_variants.isdigit() and len(code_for_variants) == 6:
             suffix = ".SH" if code_for_variants.startswith(("5", "6", "9")) else ".SZ"
             cls._append_unique(terms, f"{code_for_variants}{suffix}")
+            return terms
+
+        if cls._is_korean_stock(code_for_variants):
+            if "." in code_for_variants:
+                base, suffix = code_for_variants.rsplit(".", 1)
+            else:
+                base = code_for_variants[2:]
+                suffix = "KQ" if code_for_variants.startswith("KQ") else "KS"
+            cls._append_unique(terms, base)
+            cls._append_unique(terms, f"{base}.{suffix}")
+            cls._append_unique(terms, f"KR{base}")
+            cls._append_unique(terms, f"KRX:{base}")
             return terms
 
         if cls._US_STOCK_RE.match(code_for_variants):
@@ -3195,11 +3224,15 @@ class SearchService:
 
         # 构建搜索查询（优化搜索效果）
         is_foreign = self._is_foreign_stock(stock_code)
+        is_korean = self._is_korean_stock(stock_code)
         if focus_keywords:
             # 如果提供了关键词，直接使用关键词作为查询
             query = " ".join(focus_keywords)
         elif prefer_chinese:
             query = f"{stock_name} {stock_code} 股票 最新消息"
+        elif is_korean:
+            base_code = stock_code.strip().upper().split(".", 1)[0]
+            query = f"{stock_name} {base_code} KRX 뉴스 공시 실적 주가"
         elif is_foreign:
             # 港股/美股使用英文搜索关键词
             query = f"{stock_name} {stock_code} stock latest news"
@@ -3457,9 +3490,56 @@ class SearchService:
         search_count = 0
 
         is_foreign = self._is_foreign_stock(stock_code)
+        is_korean = self._is_korean_stock(stock_code)
         is_index_etf = self.is_index_or_etf(stock_code, stock_name)
 
-        if is_foreign:
+        if is_korean:
+            base_code = stock_code.strip().upper().split(".", 1)[0]
+            search_dimensions = [
+                {
+                    'name': 'latest_news',
+                    'query': f"{stock_name} {base_code} KRX 최신 뉴스 주가",
+                    'desc': '최신 뉴스',
+                    'tavily_topic': 'news',
+                    'strict_freshness': True,
+                },
+                {
+                    'name': 'market_analysis',
+                    'query': f"{stock_name} {base_code} 증권사 리포트 목표주가 투자의견",
+                    'desc': '증권사 분석',
+                    'tavily_topic': None,
+                    'strict_freshness': False,
+                },
+                {
+                    'name': 'risk_check',
+                    'query': f"{stock_name} {base_code} 리스크 소송 제재 악재 감산",
+                    'desc': '리스크 점검',
+                    'tavily_topic': 'news',
+                    'strict_freshness': False,
+                },
+                {
+                    'name': 'announcements',
+                    'query': f"{stock_name} {base_code} DART 공시 사업보고서 분기보고서",
+                    'desc': '공시',
+                    'tavily_topic': None,
+                    'strict_freshness': False,
+                },
+                {
+                    'name': 'earnings',
+                    'query': f"{stock_name} {base_code} 실적 매출 영업이익 전망",
+                    'desc': '실적 전망',
+                    'tavily_topic': None,
+                    'strict_freshness': False,
+                },
+                {
+                    'name': 'industry',
+                    'query': f"{stock_name} {base_code} 반도체 업황 수급 외국인",
+                    'desc': '업황',
+                    'tavily_topic': None,
+                    'strict_freshness': False,
+                },
+            ]
+        elif is_foreign:
             search_dimensions = [
                 {
                     'name': 'latest_news',
