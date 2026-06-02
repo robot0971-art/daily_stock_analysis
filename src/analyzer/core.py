@@ -52,6 +52,7 @@ from src.report_language import (
 )
 from src.schemas.report_schema import AnalysisReportSchema
 from src.market_context import get_market_role, get_market_guidelines
+from src.market_phase_prompt import format_market_phase_prompt_section
 
 # 서브모듈 임포트
 from src.analyzer.prompts import LEGACY_DEFAULT_SYSTEM_PROMPT, SYSTEM_PROMPT, TEXT_SYSTEM_PROMPT
@@ -415,6 +416,40 @@ class GeminiAnalyzer:
 - All human-readable JSON values must be written in English.
 - Use the common English company name when you are confident; otherwise keep the original listed company name instead of inventing one.
 - This includes `stock_name`, `trend_prediction`, `operation_advice`, `confidence_level`, nested dashboard text, checklist items, and all narrative summaries.
+
+## Beginner-Friendly Analyst Style
+
+- Explain the conclusion like a careful analyst speaking to a first-time investor.
+- Avoid unexplained jargon. If you must use terms like support, resistance, PER, cash flow, or moving average, add a short plain-language explanation in the same sentence.
+- Start the human-readable conclusion with the practical action: Buy, Hold/Watch, or Sell/Reduce.
+- Separate "what is happening", "why it matters", and "what would change the view".
+- Never present the output as guaranteed profit or personal financial advice.
+"""
+        if lang == "zh":
+            return base_prompt + """
+
+## Output Language
+
+- Keep all JSON keys unchanged.
+- `decision_type` must remain `buy|hold|sell`.
+- Write all human-readable JSON values in Chinese.
+"""
+        if lang == "ko":
+            return base_prompt + """
+
+## 출력 언어와 설명 방식 (최우선)
+
+- 모든 JSON 키 이름은 바꾸지 않는다.
+- `decision_type`은 반드시 `buy|hold|sell` 중 하나로 유지한다.
+- 사람이 읽는 모든 JSON 값은 한국어로 작성한다.
+
+## 초보자도 이해할 수 있는 설명 원칙
+
+- 결론은 투자 초보자가 바로 이해할 수 있게 쉬운 한국어로 설명한다.
+- 어려운 용어를 그대로 쓰지 않는다. 지지선, 저항선, PER, 현금흐름, 이동평균 같은 용어를 쓰면 같은 문장 안에서 쉬운 뜻을 짧게 풀어쓴다.
+- 사람이 읽는 결론 문장은 반드시 "매수", "관망/보유", "매도/비중 축소" 중 무엇을 해야 하는지부터 말한다.
+- "지금 무슨 일이 있는지", "왜 중요한지", "어떤 조건이면 판단이 바뀌는지"를 분리해서 설명한다.
+- 수익을 보장하거나 개인 맞춤 투자 조언처럼 단정하지 않는다.
 """
         return base_prompt + """
 
@@ -423,6 +458,13 @@ class GeminiAnalyzer:
 - 모든 JSON 键名保持不变。
 - `decision_type` 필수保持위해 `buy|hold|sell`。
 - 모든面로사용자의人类可读텍스트치필수사용중국어。
+## 초보자도 이해할 수 있는 설명 원칙
+
+- 결론은 투자 초보자가 바로 이해할 수 있게 쉬운 한국어로 설명한다.
+- 어려운 용어를 그대로 쓰지 않는다. 지지선, 저항선, PER, 현금흐름, 이동평균 같은 용어를 쓰면 같은 문장 안에서 쉬운 뜻을 짧게 풀어쓴다.
+- 사람이 읽는 결론 문장은 반드시 "매수", "관망/보유", "매도/비중 축소" 중 무엇을 해야 하는지부터 말한다.
+- "지금 무슨 일이 있는지", "왜 중요한지", "어떤 조건이면 판단이 바뀌는지"를 분리해서 설명한다.
+- 수익을 보장하거나 개인 맞춤 투자 조언처럼 단정하지 않는다.
 """
 
     def _has_channel_config(self, config: Config) -> bool:
@@ -1113,6 +1155,10 @@ class GeminiAnalyzer:
         today = context.get('today', {}) or {}
         unknown_text = get_unknown_text(report_language)
         no_data_text = get_no_data_text(report_language)
+        market_phase_section = format_market_phase_prompt_section(
+            context.get("market_phase_context"),
+            report_language=report_language,
+        )
 
         prompt = f"""# 의사결정대시보드분석요청
 
@@ -1146,6 +1192,11 @@ class GeminiAnalyzer:
 | MA20 | {today.get('ma20', 'N/A')} | |
 | 이동평균선패턴 | {context.get('ma_status', unknown_text)} | |
 """
+
+        if market_phase_section:
+            prompt = market_phase_section + "\n## 技术面数据 / 기술 데이터\n" + prompt
+        else:
+            prompt = "## 技术面数据 / 기술 데이터\n" + prompt
 
         if 'realtime' in context:
             rt = context['realtime']
@@ -1496,6 +1547,27 @@ class GeminiAnalyzer:
 - 量能异常提示。
 - 技术面一致性。
 - 可能存在异常数据或一次性冲量。
+"""
+
+        if report_language == "en":
+            prompt += """
+
+### Beginner-friendly decision explanation
+- In `dashboard.core_conclusion.one_sentence`, begin with the action: Buy, Hold/Watch, or Sell/Reduce.
+- In `analysis_summary`, explain the decision in 3 short parts: current situation, why it matters, and what condition would change the view.
+- In `battle_plan.action_checklist`, use concrete checklist items a beginner can follow, not abstract slogans.
+- In `risk_warning` and `data_limitations`, clearly say what the model does not know or what data may be stale.
+- Keep the tone educational and cautious; do not imply guaranteed profit.
+"""
+        else:
+            prompt += """
+
+### 초보자용 판단 설명 규칙
+- `dashboard.core_conclusion.one_sentence`는 반드시 "매수", "관망/보유", "매도/비중 축소" 중 결론부터 시작한다.
+- `analysis_summary`는 "현재 상황", "왜 중요한지", "무슨 조건이면 판단이 바뀌는지"를 짧게 나눠 설명한다.
+- `battle_plan.action_checklist`는 초보자가 실제로 확인할 수 있는 체크리스트로 작성한다. 추상적인 구호는 쓰지 않는다.
+- `risk_warning`과 `data_limitations`에는 모르는 것, 오래됐을 수 있는 데이터, 뉴스 날짜가 불명확한 경우를 솔직히 적는다.
+- 쉬운 한국어를 사용하고, 수익 보장이나 개인 맞춤 투자 조언처럼 단정하지 않는다.
 """
 
         return prompt

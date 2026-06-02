@@ -130,6 +130,50 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertIn("支撑/压力位", prompt)
         self.assertIn("洗盘观察", prompt)
 
+    def test_analysis_system_prompt_requires_beginner_friendly_korean_style(self) -> None:
+        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
+            analyzer = GeminiAnalyzer()
+
+        prompt = analyzer._get_analysis_system_prompt("ko", stock_code="005930.KS")
+
+        self.assertIn("초보자도 이해할 수 있는 설명 원칙", prompt)
+        self.assertIn("쉬운 한국어", prompt)
+        self.assertIn("지금 무슨 일이 있는지", prompt)
+        self.assertIn("수익을 보장", prompt)
+
+    def test_format_prompt_adds_beginner_decision_rules_for_korean_report(self) -> None:
+        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
+            analyzer = GeminiAnalyzer()
+
+        context = {
+            "code": "005930.KS",
+            "stock_name": "삼성전자",
+            "date": "2026-06-02",
+            "today": {"close": 356500, "ma5": 350000, "ma10": 342000, "ma20": 330000},
+        }
+
+        prompt = analyzer._format_prompt(
+            context,
+            "삼성전자",
+            news_context="Samsung Electronics stock news",
+            report_language="ko",
+        )
+
+        self.assertIn("초보자용 판단 설명 규칙", prompt)
+        self.assertIn("결론부터 시작", prompt)
+        self.assertIn("현재 상황", prompt)
+        self.assertIn("뉴스 날짜가 불명확한 경우", prompt)
+
+    def test_analysis_system_prompt_requires_beginner_friendly_english_style(self) -> None:
+        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
+            analyzer = GeminiAnalyzer()
+
+        prompt = analyzer._get_analysis_system_prompt("en", stock_code="AAPL")
+
+        self.assertIn("Beginner-Friendly Analyst Style", prompt)
+        self.assertIn("first-time investor", prompt)
+        self.assertIn("what would change the view", prompt)
+
     def test_prompt_contains_time_constraints(self) -> None:
         with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
             analyzer = GeminiAnalyzer()
