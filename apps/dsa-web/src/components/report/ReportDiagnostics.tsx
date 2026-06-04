@@ -134,7 +134,7 @@ export const ReportDiagnostics: React.FC<ReportDiagnosticsProps> = ({
   language = 'ko',
 }) => {
   const reportLanguage = normalizeReportLanguage(language);
-  const text = TEXT[reportLanguage];
+  const text = reportLanguage === 'en' ? TEXT.en : TEXT.ko;
   const [fetchState, setFetchState] = useState<{
     recordId?: number;
     summary: RunDiagnosticSummary | null;
