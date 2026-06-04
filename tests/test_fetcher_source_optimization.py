@@ -154,6 +154,54 @@ class TestFetcherSourceOptimization(unittest.TestCase):
         yfinance.get_daily_data.assert_called_once()
         longbridge.get_daily_data.assert_not_called()
 
+    @patch.dict("os.environ", {}, clear=True)
+    @patch("src.config.get_config")
+    def test_us_daily_route_defaults_to_yfinance_first(self, mock_get_config):
+        mock_get_config.return_value = SimpleNamespace()
+
+        yfinance = MagicMock()
+        yfinance.name = "YfinanceFetcher"
+        yfinance.priority = 4
+        yfinance.get_daily_data.return_value = _make_daily_df()
+
+        finnhub = MagicMock()
+        finnhub.name = "FinnhubFetcher"
+        finnhub.priority = 2
+        finnhub.get_daily_data.return_value = _make_daily_df()
+
+        manager = DataFetcherManager(fetchers=[finnhub, yfinance])
+
+        df, source = manager.get_daily_data("AAPL", start_date="2026-05-01", end_date="2026-05-08")
+
+        self.assertFalse(df.empty)
+        self.assertEqual(source, "YfinanceFetcher")
+        yfinance.get_daily_data.assert_called_once()
+        finnhub.get_daily_data.assert_not_called()
+
+    @patch.dict("os.environ", {"US_DAILY_DATA_SOURCE_ORDER": "finnhub,yfinance"}, clear=True)
+    @patch("src.config.get_config")
+    def test_us_daily_route_can_prefer_finnhub_when_configured(self, mock_get_config):
+        mock_get_config.return_value = SimpleNamespace()
+
+        yfinance = MagicMock()
+        yfinance.name = "YfinanceFetcher"
+        yfinance.priority = 4
+        yfinance.get_daily_data.return_value = _make_daily_df()
+
+        finnhub = MagicMock()
+        finnhub.name = "FinnhubFetcher"
+        finnhub.priority = 2
+        finnhub.get_daily_data.return_value = _make_daily_df()
+
+        manager = DataFetcherManager(fetchers=[yfinance, finnhub])
+
+        df, source = manager.get_daily_data("AAPL", start_date="2026-05-01", end_date="2026-05-08")
+
+        self.assertFalse(df.empty)
+        self.assertEqual(source, "FinnhubFetcher")
+        finnhub.get_daily_data.assert_called_once()
+        yfinance.get_daily_data.assert_not_called()
+
     @patch("src.config.get_config")
     def test_hk_daily_route_skips_temporarily_unavailable_longbridge(self, mock_get_config):
         mock_get_config.return_value = SimpleNamespace(

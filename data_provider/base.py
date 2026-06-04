@@ -15,6 +15,7 @@
 """
 
 import logging
+import os
 import random
 import time
 from threading import BoundedSemaphore, RLock, Thread
@@ -38,6 +39,58 @@ logger = logging.getLogger(__name__)
 
 # === 标准化列名定义 ===
 STANDARD_COLUMNS = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'pct_chg']
+
+_US_DAILY_FETCHER_NAMES = {
+    "YfinanceFetcher",
+    "FinnhubFetcher",
+    "AlphaVantageFetcher",
+    "LongbridgeFetcher",
+}
+_DEFAULT_US_DAILY_SOURCE_ORDER = [
+    "YfinanceFetcher",
+    "FinnhubFetcher",
+    "AlphaVantageFetcher",
+    "LongbridgeFetcher",
+]
+_US_DAILY_SOURCE_ALIASES = {
+    "yfinance": "YfinanceFetcher",
+    "yf": "YfinanceFetcher",
+    "finnhub": "FinnhubFetcher",
+    "alphavantage": "AlphaVantageFetcher",
+    "alpha_vantage": "AlphaVantageFetcher",
+    "alpha-vantage": "AlphaVantageFetcher",
+    "longbridge": "LongbridgeFetcher",
+}
+
+
+def _get_us_daily_source_order(prefer_longbridge: bool = False) -> List[str]:
+    """Return US daily-data provider order.
+
+    Default stays free-first: yfinance, then optional key-based providers.
+    Set US_DAILY_DATA_SOURCE_ORDER to override, for example:
+    "finnhub,alphavantage,yfinance,longbridge".
+    """
+    raw = os.getenv("US_DAILY_DATA_SOURCE_ORDER", "").strip()
+    order: List[str] = []
+    if raw:
+        for item in raw.split(","):
+            key = item.strip()
+            if not key:
+                continue
+            normalized = _US_DAILY_SOURCE_ALIASES.get(key.lower(), key)
+            if normalized in _US_DAILY_FETCHER_NAMES and normalized not in order:
+                order.append(normalized)
+
+    if not order:
+        order = list(_DEFAULT_US_DAILY_SOURCE_ORDER)
+
+    if prefer_longbridge and "LongbridgeFetcher" in order:
+        order = ["LongbridgeFetcher"] + [name for name in order if name != "LongbridgeFetcher"]
+
+    for name in _DEFAULT_US_DAILY_SOURCE_ORDER:
+        if name not in order:
+            order.append(name)
+    return order
 
 
 def unwrap_exception(exc: Exception) -> Exception:
@@ -1225,10 +1278,8 @@ class DataFetcherManager:
             if is_us_index:
                 # 指数始终 YFinance 首选（Longbridge 不提供指数K线）
                 source_order = ["YfinanceFetcher", "FinnhubFetcher"]
-            elif prefer_lb:
-                source_order = ["LongbridgeFetcher", "FinnhubFetcher", "AlphaVantageFetcher", "YfinanceFetcher"]
             else:
-                source_order = ["FinnhubFetcher", "AlphaVantageFetcher", "YfinanceFetcher", "LongbridgeFetcher"]
+                source_order = _get_us_daily_source_order(prefer_longbridge=prefer_lb)
             market_label = "美股指数" if is_us_index else "美股"
 
             for order_index, src_name in enumerate(source_order):

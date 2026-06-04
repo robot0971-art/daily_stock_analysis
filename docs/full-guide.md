@@ -1465,6 +1465,23 @@ SEC_USER_AGENT=daily-stock-analysis/1.0 your-email@example.com
 SEC_TIMEOUT_SECONDS=10
 ```
 
+# US stock data without paid APIs
+
+미국 주식은 기본적으로 추가 유료 API 키 없이 동작하도록 둡니다.
+
+- 가격/일봉 데이터: `yfinance`를 먼저 사용합니다.
+- 미국 공시/재무 보강: SEC EDGAR 공개 API를 사용합니다. API 키는 필요 없지만 `SEC_USER_AGENT` 설정을 권장합니다.
+- 관련 뉴스: 자가 호스팅 SearXNG를 사용합니다.
+- Finnhub, AlphaVantage, Longbridge는 키가 있을 때만 보조 데이터원으로 사용합니다.
+
+기본 우선순위는 무료 우선입니다.
+
+```env
+US_DAILY_DATA_SOURCE_ORDER=yfinance,finnhub,alphavantage,longbridge
+```
+
+초보자 기준으로는 이 값을 바꾸지 않는 것을 권장합니다. 유료 또는 호출 제한 API를 먼저 쓰고 싶을 때만 `finnhub,yfinance,...`처럼 순서를 바꾸면 됩니다.
+
 # OpenDART setup
 
 OpenDART requires an API key. It is used for Korean company disclosures and

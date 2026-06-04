@@ -225,11 +225,11 @@ class TestFinnhubFetcherRegistration(unittest.TestCase):
 
 
 class TestUSDailyRoutingFallback(unittest.TestCase):
-    """Verify US daily routing includes Finnhub/AlphaVantage in the failover chain."""
+    """Verify US daily routing keeps key-based providers as fallback sources."""
 
     @patch('src.config.get_config')
-    def test_us_routing_includes_new_fetchers(self, mock_config):
-        """US stock get_daily_data source_order must contain Finnhub and AlphaVantage."""
+    def test_us_routing_registers_optional_fetchers(self, mock_config):
+        """US stock daily data keeps Finnhub and AlphaVantage available as fallbacks."""
         mock_config.return_value = MagicMock(
             finnhub_api_key='sk-test',
             alphavantage_api_key='av-test',
@@ -246,13 +246,6 @@ class TestUSDailyRoutingFallback(unittest.TestCase):
         names = [f.name for f in mgr._get_fetchers_snapshot()]
         self.assertIn('FinnhubFetcher', names)
         self.assertIn('AlphaVantageFetcher', names)
-
-        # Verify the US routing source_order by checking the code path
-        # When Longbridge is not preferred, Finnhub should come before Yfinance
-        finnhub_idx = names.index('FinnhubFetcher')
-        yfinance_idx = names.index('YfinanceFetcher')
-        self.assertLess(finnhub_idx, yfinance_idx,
-                        "FinnhubFetcher should have higher priority (lower index) than YfinanceFetcher")
 
 
 if __name__ == '__main__':
