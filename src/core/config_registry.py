@@ -1900,15 +1900,13 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "options": [
             {"label": "Korean", "value": "ko"},
             {"label": "English", "value": "en"},
-            {"label": "Chinese", "value": "zh"},
         ],
-        "validation": {"enum": ["ko", "en", "zh"]},
+        "validation": {"enum": ["ko", "en"]},
         "display_order": 56,
         "help_key": "settings.notification.report_output",
         "examples": [
             "REPORT_LANGUAGE=ko",
             "REPORT_LANGUAGE=en",
-            "REPORT_LANGUAGE=zh",
         ],
         "docs": [
             {

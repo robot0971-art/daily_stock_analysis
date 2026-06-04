@@ -122,6 +122,9 @@ class TestResolveNameToCode:
         assert resolve_name_to_code("贵州茅台") == "600519"
         assert resolve_name_to_code("腾讯控股") == "00700"
 
+    def test_stock_index_korean_alias_match(self):
+        assert resolve_name_to_code("애플") == "AAPL"
+
     def test_returns_none_for_empty_or_invalid_input(self):
         assert resolve_name_to_code("") is None
         assert resolve_name_to_code("   ") is None

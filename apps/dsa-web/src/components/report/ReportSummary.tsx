@@ -50,7 +50,7 @@ export const ReportSummary: React.FC<ReportSummaryProps> = ({
         details={details}
       />
 
-      <ReportStrategy strategy={strategy} language={reportLanguage} />
+      <ReportStrategy strategy={strategy} language={reportLanguage} stockCode={meta.stockCode} />
 
       <ReportNews recordId={recordId} limit={8} language={reportLanguage} />
 

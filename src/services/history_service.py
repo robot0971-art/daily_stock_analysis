@@ -162,16 +162,16 @@ class HistoryService:
     @staticmethod
     def _current_report_language() -> str:
         try:
-            return normalize_report_language(getattr(get_config(), "report_language", "zh"))
+            return normalize_report_language(getattr(get_config(), "report_language"))
         except Exception:
-            return "zh"
+            return "ko"
 
     @classmethod
     def _display_language_for_record(cls, record, report_language: Optional[str] = None) -> str:
         current_language = cls._current_report_language()
         if current_language == "ko":
             return "ko"
-        return normalize_report_language(report_language or "zh")
+        return normalize_report_language(report_language)
 
     @staticmethod
     def _get_record_report_language(record) -> Optional[str]:
@@ -186,8 +186,6 @@ class HistoryService:
     def _is_legacy_record(record, report_language: Optional[str] = None) -> bool:
         language = normalize_report_language(report_language) if report_language else None
         code = str(getattr(record, "code", "") or "").strip().upper()
-        if language == "zh":
-            return True
         if code.startswith("HK") or code.endswith(".HK"):
             return True
         return code.isdigit() and len(code) == 6 and code not in {"000660", "005930"}
@@ -884,7 +882,7 @@ class HistoryService:
         """
         report_date = record.created_at.strftime("%Y-%m-%d") if record.created_at else datetime.now().strftime("%Y-%m-%d")
         report_time = record.created_at.strftime("%H:%M:%S") if record.created_at else datetime.now().strftime("%H:%M:%S")
-        report_language = normalize_report_language(getattr(result, "report_language", "zh"))
+        report_language = normalize_report_language(getattr(result, "report_language"))
         labels = get_report_labels(report_language)
         if report_language == "en":
             analysis_date_label = "Analysis Date"
@@ -1246,7 +1244,7 @@ class HistoryService:
         return get_signal_level(
             result.operation_advice,
             result.sentiment_score,
-            getattr(result, "report_language", "zh"),
+            getattr(result, "report_language"),
         )
 
     @staticmethod

@@ -1679,6 +1679,41 @@ class AnalysisApiContractTestCase(unittest.TestCase):
             notify=True,
         )
 
+    def test_trigger_analysis_accepts_korean_free_text_input(self) -> None:
+        if trigger_analysis is None:
+            self.skipTest("fastapi is not installed in this test environment")
+
+        queue = MagicMock()
+        queue.submit_tasks_batch.return_value = ([], [])
+
+        with patch("api.v1.endpoints.analysis.resolve_name_to_code", return_value="AAPL"), \
+             patch("api.v1.endpoints.analysis.get_task_queue", return_value=queue):
+            response = trigger_analysis(
+                request=SimpleNamespace(
+                    stock_code="애플",
+                    stock_codes=None,
+                    stock_name=None,
+                    original_query="애플",
+                    selection_source="manual",
+                    report_type="detailed",
+                    force_refresh=False,
+                    async_mode=True,
+                    notify=True,
+                ),
+                config=SimpleNamespace(),
+            )
+
+        self.assertEqual(response.status_code, 202)
+        queue.submit_tasks_batch.assert_called_once_with(
+            stock_codes=["AAPL"],
+            stock_name=None,
+            original_query="애플",
+            selection_source="manual",
+            report_type="detailed",
+            force_refresh=False,
+            notify=True,
+        )
+
     def test_trigger_analysis_accepts_resolvable_free_text_input(self) -> None:
         if trigger_analysis is None:
             self.skipTest("fastapi is not installed in this test environment")

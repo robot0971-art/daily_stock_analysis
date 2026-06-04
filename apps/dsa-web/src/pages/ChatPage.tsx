@@ -222,7 +222,7 @@ const ChatPage: React.FC = () => {
         }
         const parsed = getParsedApiError(error);
         setContextCompressionLoaded(false);
-        setContextCompressionError(parsed.message || '无法读取上下文压缩配置');
+        setContextCompressionError(parsed.message || '컨텍스트 압축 설정을 읽을 수 없습니다');
         console.error('Failed to load context compression setting:', error);
       });
 
@@ -258,7 +258,7 @@ const ChatPage: React.FC = () => {
       } catch (error) {
         const parsed = getParsedApiError(error);
         setContextCompressionEnabled(previousEnabled);
-        setContextCompressionError(parsed.message || '上下文压缩设置保存失败');
+        setContextCompressionError(parsed.message || '컨텍스트 압축 설정 저장 실패');
       } finally {
         setContextCompressionSaving(false);
       }
@@ -1053,21 +1053,21 @@ const ChatPage: React.FC = () => {
                     onChange={(event) => void updateContextCompressionEnabled(event.target.checked)}
                     className="chat-skill-checkbox"
                   />
-                  <span className="font-medium">上下文压缩</span>
-                  <span className="text-xs text-muted-text">节省长会话 token</span>
+                  <span className="font-medium">컨텍스트 압축</span>
+                  <span className="text-xs text-muted-text">긴 대화 토큰 절약</span>
                 </label>
                 <span className="text-xs text-muted-text">
                   {contextCompressionSaving
-                    ? '保存中...'
+                    ? '저장 중...'
                     : contextCompressionEnabled
-                      ? '已启用'
-                      : '未启用'}
+                      ? '활성화됨'
+                      : '비활성화됨'}
                 </span>
               </div>
               {contextCompressionError ? (
                 <InlineAlert
                   variant="danger"
-                  title="上下文压缩设置未保存"
+                  title="컨텍스트 압축 설정이 저장되지 않음"
                   message={contextCompressionError}
                   className="rounded-xl px-3 py-2 text-xs shadow-none"
                 />

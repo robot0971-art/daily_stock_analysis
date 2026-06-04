@@ -171,7 +171,7 @@ class AnalysisReport(BaseModel):
                 "stock_code": "600519",
                 "stock_name": "贵州茅台",
                 "report_type": "detailed",
-                "report_language": "zh",
+                "report_language": "ko",
                 "created_at": "2024-01-01T12:00:00"
             },
             "summary": {

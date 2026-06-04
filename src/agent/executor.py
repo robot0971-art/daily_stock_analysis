@@ -500,7 +500,7 @@ class AgentExecutor:
         default_skill_policy_section = ""
         if self.default_skill_policy:
             default_skill_policy_section = f"\n{self.default_skill_policy}\n"
-        report_language = normalize_report_language((context or {}).get("report_language", "zh"))
+        report_language = normalize_report_language((context or {}).get("report_language"))
         stock_code = (context or {}).get("stock_code", "")
         market_role = get_market_role(stock_code, report_language)
         market_guidelines = get_market_guidelines(stock_code, report_language)
@@ -549,7 +549,7 @@ class AgentExecutor:
         default_skill_policy_section = ""
         if self.default_skill_policy:
             default_skill_policy_section = f"\n{self.default_skill_policy}\n"
-        report_language = normalize_report_language((context or {}).get("report_language", "zh"))
+        report_language = normalize_report_language((context or {}).get("report_language"))
         stock_code = (context or {}).get("stock_code", "")
         market_role = get_market_role(stock_code, report_language)
         market_guidelines = get_market_guidelines(stock_code, report_language)
@@ -754,15 +754,15 @@ class AgentExecutor:
         """Build the initial user message."""
         parts = [task]
         if context:
-            report_language = normalize_report_language(context.get("report_language", "zh"))
+            report_language = normalize_report_language(context.get("report_language"))
             if context.get("stock_code"):
                 parts.append(f"\n股票代码: {context['stock_code']}")
             if context.get("report_type"):
                 parts.append(f"报告类型: {context['report_type']}")
             if report_language == "en":
-                parts.append("输出语言: English（所有 JSON 键名保持不变，所有面向用户的文本值使用英文）")
+                parts.append("Output language: English (keep JSON keys unchanged, user-facing text in English)")
             else:
-                parts.append("输出语言: 中文（所有 JSON 键名保持不变，所有面向用户的文本值使用中文）")
+                parts.append("Output language: Korean (keep JSON keys unchanged, user-facing text in Korean)")
 
             market_phase_section = format_market_phase_prompt_section(
                 context.get("market_phase_context"),

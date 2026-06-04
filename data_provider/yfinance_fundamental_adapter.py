@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Yfinance fundamental adapter for HK/US markets (fail-open).
 
@@ -6,20 +6,20 @@ Mirrors the bundle shape of `AkshareFundamentalAdapter.get_fundamental_bundle`
 so it can be plugged into `data_provider.base.get_fundamental_context()`
 without changing downstream consumers. Adds HK/US-specific fields:
 
-- ``earnings.financial_report.currency`` — financial statement currency
+- ``earnings.financial_report.currency`` ??financial statement currency
   (``USD`` / ``HKD`` / ``CNY``) from ``info.financialCurrency``. For HK ADRs
   yfinance commonly reports ``financialCurrency=CNY`` while trades settle in
   HKD, so this differs from the dividend currency below.
-- ``earnings.dividend.currency`` — trading / dividend currency from
-  ``info.currency`` (e.g. HKD for 0700.HK). Used to suffix 港元/美元/元 for
+- ``earnings.dividend.currency`` ??trading / dividend currency from
+  ``info.currency`` (e.g. HKD for 0700.HK). Used to suffix 歷?뀇/獰롥뀇/??for
   per-share cash dividends and to scope the TTM yield denominator.
-- ``earnings.dividend.ttm_dividend_yield_pct`` — computed as
+- ``earnings.dividend.ttm_dividend_yield_pct`` ??computed as
   ``ttm_cash_dividend_per_share / latest_price * 100``, both sides in the
   trading currency (info.currentPrice/regularMarketPrice/previousClose).
   ``info.dividendYield`` is only used as a last-resort fallback and is
   passed through as-is (current yfinance reports it in percent units).
-- ``belong_boards`` — derived from ``info.sector`` + ``info.industry``; the CN
-  pipeline derives it from AkShare 板块名单, this is the HK/US analogue.
+- ``belong_boards`` ??derived from ``info.sector`` + ``info.industry``; the CN
+  pipeline derives it from AkShare ?욕쓼?띶뜒, this is the HK/US analogue.
 
 This adapter intentionally treats every yfinance call as best-effort and never
 raises to caller. Partial data is allowed; downstream `_infer_block_status` will
@@ -97,7 +97,7 @@ def _yoy_from_row(row: Optional[pd.Series]) -> Optional[float]:
     yfinance ``quarterly_*_stmt`` returns 4 quarters by default, so this
     typically returns None and callers fall back to ``info.revenueGrowth`` /
     ``info.earningsGrowth`` (already TTM YoY ratios). Doing QoQ via ``iloc[1]``
-    is wrong for seasonal businesses — explicitly refuse it.
+    is wrong for seasonal businesses ??explicitly refuse it.
     """
     if row is None or row.empty or len(row) < 5:
         return None
@@ -185,7 +185,7 @@ class YfinanceFundamentalAdapter:
 
         # Financial statements (income/cashflow) are reported in `financialCurrency`;
         # for HK ADRs that is often CNY even when the stock trades in HKD. Dividends
-        # and live price are paid/quoted in `currency` — keep them separate so the
+        # and live price are paid/quoted in `currency` ??keep them separate so the
         # renderer can suffix per-block currency tags correctly.
         financial_currency = str(info.get("financialCurrency") or info.get("currency") or "").upper() or None
         dividend_currency = str(info.get("currency") or info.get("financialCurrency") or "").upper() or None
@@ -238,7 +238,7 @@ class YfinanceFundamentalAdapter:
             operating_cash_flow_latest = _latest_value(_pick_row(cashflow_df, _CASHFLOW_OP_KEYS))
 
         # Fallback to TTM aggregates from .info when quarterly statements are
-        # unavailable — still produces a non-empty row.
+        # unavailable ??still produces a non-empty row.
         if revenue_latest is None:
             revenue_latest = _safe_float(info.get("totalRevenue"))
         if operating_cash_flow_latest is None:
@@ -251,7 +251,7 @@ class YfinanceFundamentalAdapter:
         # Statement-derived YoY (requires 4 quarters of history) is preferred
         # over .info ratios; otherwise keep the TTM growth values already set
         # from info.revenueGrowth / info.earningsGrowth above. Refuse QoQ
-        # fallback — it produces misleading numbers for seasonal businesses.
+        # fallback ??it produces misleading numbers for seasonal businesses.
         statement_revenue_yoy = _yoy_from_row(revenue_row)
         statement_net_profit_yoy = _yoy_from_row(net_profit_row)
         if statement_revenue_yoy is not None:
@@ -333,7 +333,7 @@ class YfinanceFundamentalAdapter:
             # numerator and denominator are consistent (and both in the trading
             # currency). yfinance's `info.dividendYield` is now reported in
             # percent units, but past versions returned a ratio and some ADR
-            # payloads still drift — keep it as a last-resort passthrough only.
+            # payloads still drift ??keep it as a last-resort passthrough only.
             latest_price = (
                 _safe_float(info.get("currentPrice"))
                 or _safe_float(info.get("regularMarketPrice"))
@@ -358,10 +358,10 @@ class YfinanceFundamentalAdapter:
         belong_boards: List[Dict[str, Any]] = []
         sector_name = str(info.get("sector") or info.get("sectorDisp") or "").strip()
         if sector_name:
-            belong_boards.append({"name": sector_name, "type": "行业"})
+            belong_boards.append({"name": sector_name, "type": "업종"})
         industry_name = str(info.get("industry") or info.get("industryDisp") or "").strip()
         if industry_name and industry_name != sector_name:
-            belong_boards.append({"name": industry_name, "type": "概念"})
+            belong_boards.append({"name": industry_name, "type": "산업"})
         if belong_boards:
             result["belong_boards"] = belong_boards
             result["source_chain"].append("belong_boards:yfinance.info")

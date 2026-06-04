@@ -7,6 +7,13 @@ interface TaskItemProps {
   task: TaskInfo;
 }
 
+const getTaskDisplayName = (task: TaskInfo): string => {
+  if (task.stockCode === 'market_review') {
+    return '시장 리뷰';
+  }
+  return task.stockName || task.stockCode;
+};
+
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const isPending = task.status === 'pending';
   const isProcessing = task.status === 'processing';
@@ -28,7 +35,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground truncate">
-            {task.stockName || task.stockCode}
+            {getTaskDisplayName(task)}
           </span>
           <span className="text-xs text-muted-text">
             {task.stockCode}

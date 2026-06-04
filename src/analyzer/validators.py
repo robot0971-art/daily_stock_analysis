@@ -120,7 +120,7 @@ def apply_placeholder_fill(result: Any, missing_fields: List[str]) -> None:
             return not value.strip()
         return False
 
-    placeholder = get_placeholder_text(getattr(result, "report_language", "zh"))
+    placeholder = get_placeholder_text(getattr(result, "report_language"))
     for field in missing_fields:
         if field == "sentiment_score":
             result.sentiment_score = 50

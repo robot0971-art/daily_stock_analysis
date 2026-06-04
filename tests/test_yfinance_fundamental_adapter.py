@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Offline tests for YfinanceFundamentalAdapter.
 
@@ -108,7 +108,7 @@ class TestYfinanceFundamentalAdapter(unittest.TestCase):
 
         self.assertEqual(bundle["status"], "partial")
         growth = bundle["growth"]
-        # Statement-derived YoY uses iloc[4] (2025-03-31). (1.11e11 - 9.52e10) / 9.52e10 ≈ 16.6%
+        # Statement-derived YoY uses iloc[4] (2025-03-31). (1.11e11 - 9.52e10) / 9.52e10 ??16.6%
         self.assertAlmostEqual(growth["revenue_yoy"], 16.5966, places=2)
         self.assertAlmostEqual(growth["roe"], 141.47, places=1)
         self.assertAlmostEqual(growth["gross_margin"], 47.9, places=1)
@@ -131,13 +131,13 @@ class TestYfinanceFundamentalAdapter(unittest.TestCase):
         self.assertEqual(
             bundle["belong_boards"],
             [
-                {"name": "Technology", "type": "行业"},
-                {"name": "Consumer Electronics", "type": "概念"},
+                {"name": "Technology", "type": "업종"},
+                {"name": "Consumer Electronics", "type": "산업"},
             ],
         )
 
     def test_falls_back_to_info_when_statements_only_have_4_quarters(self) -> None:
-        """yfinance default is 4 quarters → statement-derived YoY refuses to use QoQ.
+        """yfinance default is 4 quarters ??statement-derived YoY refuses to use QoQ.
 
         Growth should fall back to ``info.revenueGrowth`` rather than producing
         a misleading QoQ-as-YoY value.
@@ -204,7 +204,7 @@ class TestYfinanceFundamentalAdapter(unittest.TestCase):
 
     def test_ttm_yield_falls_back_to_info_when_ttm_cash_absent(self) -> None:
         """If no dividend events and no trailing rate, the only source is
-        info.dividendYield — pass through as percent (do NOT multiply by 100)."""
+        info.dividendYield ??pass through as percent (do NOT multiply by 100)."""
         info = {
             "financialCurrency": "USD",
             "currency": "USD",
@@ -219,13 +219,13 @@ class TestYfinanceFundamentalAdapter(unittest.TestCase):
 
         div = bundle["earnings"]["dividend"]
         # No latest_price means we cannot recompute, so we fall through.
-        # trailingAnnualDividendYield is absent → final fallback is dividendYield as-is.
+        # trailingAnnualDividendYield is absent ??final fallback is dividendYield as-is.
         self.assertAlmostEqual(div["ttm_dividend_yield_pct"], 1.85, places=4)
         self.assertAlmostEqual(div["ttm_cash_dividend_per_share"], 0.5, places=4)
 
     def test_ttm_yield_prefers_trailing_annual_dividend_yield_over_info_yield(self) -> None:
         """When no TTM cash + price pair, trailingAnnualDividendYield (decimal)
-        beats info.dividendYield (percent) — they aren't redundant copies."""
+        beats info.dividendYield (percent) ??they aren't redundant copies."""
         info = {
             "currency": "USD",
             "totalRevenue": 1e10,

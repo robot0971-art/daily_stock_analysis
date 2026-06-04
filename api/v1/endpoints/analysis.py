@@ -83,7 +83,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_SUPPORTED_FREE_TEXT_RE = re.compile(r"^[A-Za-z0-9.*\-+\u3400-\u9fff\s]+$")
+_SUPPORTED_FREE_TEXT_RE = re.compile(r"^[A-Za-z0-9.*\-+\u3400-\u9fff\uac00-\ud7a3\s]+$")
 
 
 def _get_task_trace_id(task: Any) -> Optional[str]:
@@ -159,7 +159,7 @@ def _invalid_analysis_input_error() -> HTTPException:
         status_code=400,
         detail={
             "error": "validation_error",
-            "message": "请输入有效的股票代码或股票名称",
+            "message": "유효한 종목 코드 또는 종목명을 입력하세요.",
         },
     )
 
@@ -261,7 +261,7 @@ def trigger_analysis(
             status_code=400,
             detail={
                 "error": "validation_error",
-                "message": "必须提供 stock_code 或 stock_codes 参数"
+                "message": "stock_code 또는 stock_codes 값을 입력하세요."
             }
         )
 
@@ -288,7 +288,7 @@ def trigger_analysis(
             status_code=400,
             detail={
                 "error": "validation_error",
-                "message": f"单次分析请求最多支持 {MAX_BATCH_SIZE} 只股票"
+                "message": f"한 번에 분석할 수 있는 종목은 최대 {MAX_BATCH_SIZE}개입니다."
             }
         )
 
@@ -297,7 +297,7 @@ def trigger_analysis(
             status_code=400,
             detail={
                 "error": "validation_error",
-                "message": "股票代码不能为空或仅包含空白字符"
+                "message": "종목 코드는 비어 있거나 공백만 포함할 수 없습니다."
             }
         )
 
@@ -308,7 +308,7 @@ def trigger_analysis(
                 status_code=400,
                 detail={
                     "error": "validation_error",
-                    "message": "同步模式仅支持单只股票分析，请使用 async_mode=true 进行批量分析"
+                    "message": "동기 모드는 단일 종목 분석만 지원합니다. 여러 종목은 async_mode=true로 요청하세요."
                 }
             )
         return _handle_sync_analysis(stock_codes[0], request)
@@ -1082,7 +1082,7 @@ def _build_analysis_report(
     report_language = normalize_report_language(
         meta_data.get("report_language")
         or (context_snapshot or {}).get("report_language")
-        or getattr(Config.get_instance(), "report_language", "zh")
+        or getattr(Config.get_instance(), "report_language")
     )
     localized_stock_name = get_localized_stock_name(
         meta_data.get("stock_name", stock_name),

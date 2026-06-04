@@ -16,7 +16,7 @@ const baseMeta = {
 
   reportType: 'detailed' as const,
 
-  reportLanguage: 'zh' as const,
+  reportLanguage: 'ko' as const,
 
   createdAt: '2026-03-21T08:00:00Z',
 

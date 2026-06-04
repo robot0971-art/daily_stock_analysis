@@ -64,11 +64,26 @@ export const ReportOverview: React.FC<ReportOverviewProps> = ({
     return `${sign}${changePct.toFixed(2)}%`;
   };
 
+  const localizeBoardType = (type?: string): string | undefined => {
+    const normalized = localizeLegacyText((type ?? '').trim());
+    if (!normalized) return undefined;
+    const typeMap: Record<string, string> = {
+      '行业': '업종',
+      '概念': '테마',
+      '烏뚥툣': '업종',
+      '礖귛영': '산업',
+      industry: '업종',
+      sector: '섹터',
+      concept: '테마',
+    };
+    return typeMap[normalized] ?? normalized;
+  };
+
   const relatedBoards = isLegacyNotice ? [] : (details?.belongBoards ?? [])
     .map((board) => ({
       ...board,
       name: localizeLegacyText((board.name ?? '').trim()),
-      type: board.type ? localizeLegacyText(board.type.trim()) : undefined,
+      type: localizeBoardType(board.type),
     }))
     .filter((board) => board.name);
 

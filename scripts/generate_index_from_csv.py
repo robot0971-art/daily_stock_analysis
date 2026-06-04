@@ -524,7 +524,36 @@ def generate_aliases(name: str, market: str) -> List[str]:
     if name in alias_map:
         aliases.extend(alias_map[name])
 
+    if market == 'US':
+        aliases.extend(_us_korean_aliases(name))
+
     return aliases
+
+
+def _us_korean_aliases(name: str) -> List[str]:
+    normalized = unicodedata.normalize('NFKC', str(name or '')).strip().upper()
+    alias_map = {
+        'APPLE': ['Apple', 'AAPL', '애플', '아이폰'],
+        'APPLE INC.': ['Apple', 'AAPL', '애플', '아이폰'],
+        'MICROSOFT': ['Microsoft', 'MSFT', '마이크로소프트', '마소'],
+        'MICROSOFT CORPORATION': ['Microsoft', 'MSFT', '마이크로소프트', '마소'],
+        'AMAZON.COM': ['Amazon', 'AMZN', '아마존'],
+        'AMAZON.COM, INC.': ['Amazon', 'AMZN', '아마존'],
+        'TESLA': ['Tesla', 'TSLA', '테슬라'],
+        'TESLA INC.': ['Tesla', 'TSLA', '테슬라'],
+        'META PLATFORMS A': ['Meta', 'Facebook', 'META', '메타', '페이스북', '인스타그램'],
+        'META PLATFORMS, INC.': ['Meta', 'Facebook', 'META', '메타', '페이스북', '인스타그램'],
+        "ALPHABET 'A'": ['Google', 'Alphabet', 'GOOGL', '구글', '알파벳'],
+        'ALPHABET INC.': ['Google', 'Alphabet', 'GOOGL', '구글', '알파벳'],
+        'NVIDIA': ['NVIDIA', 'NVDA', '엔비디아'],
+        'NVIDIA CORPORATION': ['NVIDIA', 'NVDA', '엔비디아'],
+        'NETFLIX': ['Netflix', 'NFLX', '넷플릭스'],
+        'NETFLIX INC.': ['Netflix', 'NFLX', '넷플릭스'],
+        'INTEL': ['Intel', 'INTC', '인텔'],
+        'INTEL CORPORATION': ['Intel', 'INTC', '인텔'],
+        'ADVANCED MICRO DEVICES': ['AMD', 'Advanced Micro Devices', '에이엠디'],
+    }
+    return alias_map.get(normalized, [])
 
 
 def _has_hangul(value: str) -> bool:
@@ -620,10 +649,18 @@ def load_existing_index(output_path: Path) -> List[Dict[str, Any]]:
 
     index = []
     for row in rows:
+        item = None
         if isinstance(row, dict):
-            index.append(row)
+            item = row
         elif isinstance(row, list):
-            index.append(dict(zip(fields, row)))
+            item = dict(zip(fields, row))
+        if item is None:
+            continue
+        if item.get("market") == "US":
+            aliases = list(item.get("aliases") or [])
+            aliases.extend(_us_korean_aliases(item.get("nameZh", "")))
+            item["aliases"] = _dedupe_preserve_order(aliases)
+        index.append(item)
     return index
 
 

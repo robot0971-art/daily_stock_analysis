@@ -42,6 +42,24 @@ describe('TaskPanel', () => {
     expect(container.querySelector('.home-subpanel')).toBeTruthy();
   });
 
+  it('displays market review tasks in Korean', () => {
+    render(
+      <TaskPanel
+        tasks={[
+          {
+            ...baseTask,
+            taskId: 'task-market',
+            stockCode: 'market_review',
+            stockName: '大盘复盘',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('시장 리뷰')).toBeInTheDocument();
+    expect(screen.queryByText('大盘复盘')).not.toBeInTheDocument();
+  });
+
   it('does not render when there are no active tasks', () => {
     const { container } = render(
       <TaskPanel

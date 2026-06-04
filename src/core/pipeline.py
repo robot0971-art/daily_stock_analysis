@@ -641,7 +641,7 @@ class StockAnalysisPipeline:
             增强后的上下文
         """
         enhanced = context.copy()
-        enhanced["report_language"] = normalize_report_language(getattr(self.config, "report_language", "zh"))
+        enhanced["report_language"] = normalize_report_language(getattr(self.config, "report_language"))
         
         # 添加股票名称
         if stock_name:
@@ -888,7 +888,7 @@ class StockAnalysisPipeline:
         """
         try:
             from src.agent.factory import build_agent_executor
-            report_language = normalize_report_language(getattr(self.config, "report_language", "zh"))
+            report_language = normalize_report_language(getattr(self.config, "report_language"))
 
             requested_skills = (
                 self.analysis_skills
@@ -1091,7 +1091,7 @@ class StockAnalysisPipeline:
         """
         将 AgentResult 转换为 AnalysisResult。
         """
-        report_language = normalize_report_language(getattr(self.config, "report_language", "zh"))
+        report_language = normalize_report_language(getattr(self.config, "report_language"))
         result = AnalysisResult(
             code=code,
             name=stock_name,
@@ -1348,7 +1348,7 @@ class StockAnalysisPipeline:
     @staticmethod
     def _trend_label_fallback(
         trend_result: Optional[TrendAnalysisResult],
-        report_language: str = "zh",
+        report_language: str = "ko",
     ) -> str:
         if trend_result is None:
             return ""
@@ -1361,7 +1361,7 @@ class StockAnalysisPipeline:
     @staticmethod
     def _trend_signal_fallback(
         trend_result: Optional[TrendAnalysisResult],
-        report_language: str = "zh",
+        report_language: str = "ko",
     ) -> str:
         if trend_result is None:
             return ""

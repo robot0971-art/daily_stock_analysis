@@ -363,7 +363,7 @@ def _sanitize_trend_analysis_for_prompt(
     return trend_dict
 
 
-def _derive_chip_health(profit_ratio: float, concentration_90: float, language: str = "zh") -> str:
+def _derive_chip_health(profit_ratio: float, concentration_90: float, language: str = "ko") -> str:
     """Derive chip_health from profit_ratio and concentration_90."""
     if profit_ratio >= 0.9:
         return localize_chip_health("警惕", language)  # 获利盘极高
@@ -374,7 +374,7 @@ def _derive_chip_health(profit_ratio: float, concentration_90: float, language: 
     return localize_chip_health("一般", language)
 
 
-def _build_chip_structure_from_data(chip_data: Any, language: str = "zh") -> Dict[str, Any]:
+def _build_chip_structure_from_data(chip_data: Any, language: str = "ko") -> Dict[str, Any]:
     """Build chip_structure dict from ChipDistribution or dict."""
     if hasattr(chip_data, "profit_ratio"):
         pr = _safe_float(chip_data.profit_ratio)
@@ -434,7 +434,7 @@ def normalize_chip_structure_availability(result: Any, chip_data: Any) -> None:
     """Fill valid chip metrics or collapse placeholder-only chip fields to one fallback line."""
     if not result:
         return
-    language = getattr(result, "report_language", "zh")
+    language = getattr(result, "report_language")
     if _has_meaningful_chip_data(chip_data):
         fill_chip_structure_if_needed(result, chip_data)
         return
@@ -454,7 +454,7 @@ def fill_chip_structure_if_needed(result: Any, chip_data: Any) -> None:
         cs = dp.get("chip_structure") or {}
         filled = _build_chip_structure_from_data(
             chip_data,
-            language=getattr(result, "report_language", "zh"),
+            language=getattr(result, "report_language"),
         )
         merged = dict(cs)
         for k in _CHIP_KEYS:
@@ -534,7 +534,7 @@ def stabilize_decision_with_structure(
 
     try:
         from src.report_language import normalize_report_language
-        language = normalize_report_language(getattr(result, "report_language", "zh"))
+        language = normalize_report_language(getattr(result, "report_language"))
         dashboard = getattr(result, "dashboard", None)
         dashboard = dashboard if isinstance(dashboard, dict) else {}
         data_perspective = dashboard.get("data_perspective") if isinstance(dashboard, dict) else {}
@@ -844,10 +844,10 @@ def _capital_flow_bias_with_status(
 def _capital_flow_status_for_stability(reason: str, language: str) -> str:
     normalized = str(reason or "").strip().lower()
     if "not_supported" in normalized or "unsupported" in normalized or "not available" in normalized:
-        return "市场资金流服务暂不支持" if language == "zh" else "Capital flow source unsupported"
+        return "Capital flow source unsupported"
     if "empty_stock_flow" in normalized or "missing" in normalized:
-        return "资金流数据缺失" if language == "zh" else "capital flow data unavailable"
-    return "资金流数据不可用" if language == "zh" else "capital flow unavailable"
+        return "capital flow data unavailable"
+    return "capital flow unavailable"
 
 
 def _set_decision_stability_unavailable(
@@ -864,7 +864,7 @@ def _set_decision_stability_unavailable(
     result.dashboard = dashboard
     dashboard["decision_stability"] = {
         "applied": False,
-        "reason": "资金流不可用，未使用资金流校准" if language == "zh" else "Capital flow unavailable; stability calibration not applied",
+        "reason": "Capital flow unavailable; stability calibration not applied",
         "capital_flow_status": _capital_flow_status_for_stability(flow_status, language),
         "current_price": current_price,
         "support": support,
@@ -905,8 +905,8 @@ def _apply_hold_watch_dashboard(
     if not isinstance(core, dict):
         core = {}
         dashboard["core_conclusion"] = core
-    core["signal_type"] = "🟡持有观望" if language == "zh" else "🟡 Hold / Watch"
-    core["one_sentence"] = f"{advice}：{reason}" if language == "zh" else f"{advice}: {reason}"
+    core["signal_type"] = "🟡 Hold / Watch"
+    core["one_sentence"] = f"{advice}: {reason}"
 
     position_advice = core.get("position_advice")
     if not isinstance(position_advice, dict):
@@ -928,7 +928,7 @@ def _apply_hold_watch_dashboard(
     dashboard["decision_stability"] = stability
 
     if reason and reason not in str(getattr(result, "risk_warning", "")):
-        sep = "；" if language == "zh" else "; "
+        sep = "; "
         orig_risk = getattr(result, "risk_warning", "")
         result.risk_warning = f"{orig_risk}{sep}{reason}" if orig_risk else reason
     result.buy_reason = reason or getattr(result, "buy_reason", "")
@@ -944,18 +944,11 @@ def _downgrade_buy_without_capital_flow(
     flow_status: str,
 ) -> None:
     status_text = _capital_flow_status_for_stability(flow_status, language)
-    if language == "zh":
-        advice = "持有观察"
-        reason = f"{status_text}，买入结论缺少资金面确认，先按观察处理。"
-        no_position = "空仓先不追买，等待资金流恢复、支撑确认或有效突破后再行动。"
-        has_position = "持仓以关键支撑为风控线，资金流恢复前控制仓位。"
-        confidence = "低"
-    else:
-        advice = "Hold and watch"
-        reason = f"{status_text}; the buy call lacks capital-flow confirmation, so treat it as watch-only."
-        no_position = "Do not chase; wait for capital-flow recovery, support confirmation, or a valid breakout."
-        has_position = "Use key support as the risk line and keep position size controlled until capital flow recovers."
-        confidence = "Low"
+    advice = "Hold and watch"
+    reason = f"{status_text}; the buy call lacks capital-flow confirmation, so treat it as watch-only."
+    no_position = "Do not chase; wait for capital-flow recovery, support confirmation, or a valid breakout."
+    has_position = "Use key support as the risk line and keep position size controlled until capital flow recovers."
+    confidence = "Low"
 
     result.decision_type = "hold"
     result.confidence_level = confidence
@@ -1013,26 +1006,27 @@ def _set_structural_hold_wording(
     resistance: Optional[float],
     flow_bias: str,
 ) -> None:
-    advice = {
-        "zh": {
-            "range": "震荡观望",
-            "shakeout": "洗盘观察",
-            "hold": "持有观察",
+    advice_lookup = {
+        "ko": {
+            "range": "Range-bound watch",
+            "shakeout": "Shakeout watch",
+            "hold": "Hold and watch",
         },
         "en": {
             "range": "Range-bound watch",
             "shakeout": "Shakeout watch",
             "hold": "Hold and watch",
         },
-    }[language].get(advice_key, "持有观察" if language == "zh" else "Hold and watch")
+    }
+    advice = advice_lookup.get(language, advice_lookup["en"]).get(advice_key, "Hold and watch")
     reason_templates = {
-        "zh": {
-            "buy_near_resistance": "价格接近压力位且主力资金未确认流入，不宜仅因短线反弹追买。",
-            "buy_with_outflow": "主力资金流出与买入结论冲突，买点需等待支撑确认或资金回流。",
-            "sell_near_support": "价格贴近支撑且未见资金持续流出，不宜仅因单日下跌直接卖出。",
-            "sell_with_inflow": "主力资金流入与卖出结论冲突，先按持有观察处理并跟踪支撑失效。",
-            "hold_shakeout": "价格回落至支撑附近但资金未确认流出，更适合按洗盘观察处理。",
-            "hold_mid_range": "价格处于支撑与压力之间且资金流不明确，维持震荡观望更可操作。",
+        "ko": {
+            "buy_near_resistance": "Price is near resistance without confirmed main-force inflow, so chasing the rebound is not actionable.",
+            "buy_with_outflow": "Main-force outflow conflicts with a buy call; wait for support confirmation or capital inflow.",
+            "sell_near_support": "Price is near support without sustained outflow, so a one-day drop is not enough to sell.",
+            "sell_with_inflow": "Main-force inflow conflicts with a sell call; hold and watch for support failure.",
+            "hold_shakeout": "Price pulled back near support without confirmed outflow, which is better treated as a shakeout watch.",
+            "hold_mid_range": "Price is between support and resistance with neutral fund flow, so range-bound watch is more actionable.",
         },
         "en": {
             "buy_near_resistance": "Price is near resistance without confirmed main-force inflow, so chasing the rebound is not actionable.",
@@ -1043,19 +1037,13 @@ def _set_structural_hold_wording(
             "hold_mid_range": "Price is between support and resistance with neutral fund flow, so range-bound watch is more actionable.",
         },
     }
-    reason = reason_templates[language].get(reason_key, "")
+    reason = reason_templates.get(language, reason_templates["en"]).get(reason_key, "")
     result.operation_advice = advice
-    if language == "zh" and "震荡" not in str(getattr(result, "trend_prediction", "")):
-        result.trend_prediction = "震荡"
-    elif language == "en" and advice_key == "range":
+    if advice_key == "range" and language == "en":
         result.trend_prediction = "Sideways"
 
-    if language == "zh":
-        no_position = "空仓先不追涨杀跌，等待支撑确认、放量突破 or 资金回流后再行动。"
-        has_position = "持仓以关键支撑为风控线，未跌破前以观察 and 分批控仓为主。"
-    else:
-        no_position = "Do not chase or panic; wait for support confirmation, breakout, or renewed inflow."
-        has_position = "Use key support as the risk line and manage position size unless support fails."
+    no_position = "Do not chase or panic; wait for support confirmation, breakout, or renewed inflow."
+    has_position = "Use key support as the risk line and manage position size unless support fails."
     _apply_hold_watch_dashboard(
         result,
         language,

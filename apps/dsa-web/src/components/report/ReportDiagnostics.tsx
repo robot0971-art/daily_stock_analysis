@@ -60,35 +60,6 @@ const TEXT = {
       skipped: '건너뜀',
     },
   },
-  zh: {
-    eyebrow: '运行诊断',
-    title: '数据可靠性',
-    loading: '诊断加载中...',
-    unavailable: '运行诊断暂不可用',
-    noComponents: '暂无组件诊断',
-    components: '关键链路',
-    advanced: '高级字段',
-    copy: '复制排障信息',
-    copied: '已复制',
-    trace: 'Trace',
-    task: 'Task',
-    query: 'Query',
-    trigger: '触发来源',
-    overall: {
-      normal: '正常',
-      degraded: '部分降级',
-      failed: '失败',
-      unknown: '未知',
-    },
-    component: {
-      ok: '正常',
-      degraded: '最近失败后已降级',
-      failed: '失败',
-      unknown: '未知',
-      not_configured: '未配置',
-      skipped: '已跳过',
-    },
-  },
   en: {
     eyebrow: 'RUN DIAGNOSTICS',
     title: 'Data Reliability',
@@ -160,7 +131,7 @@ const getOrderedComponents = (
 export const ReportDiagnostics: React.FC<ReportDiagnosticsProps> = ({
   recordId,
   summary,
-  language = 'zh',
+  language = 'ko',
 }) => {
   const reportLanguage = normalizeReportLanguage(language);
   const text = TEXT[reportLanguage];

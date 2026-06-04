@@ -139,7 +139,7 @@ class MarketAnalyzer:
 
     def _get_review_language(self) -> str:
         configured = normalize_report_language(
-            getattr(getattr(self, "config", None), "report_language", "zh")
+            getattr(getattr(self, "config", None), "report_language")
         )
         if self.region == "us":
             return "en"
@@ -147,7 +147,7 @@ class MarketAnalyzer:
 
     def _get_template_review_language(self) -> str:
         return normalize_report_language(
-            getattr(getattr(self, "config", None), "report_language", "zh")
+            getattr(getattr(self, "config", None), "report_language")
         )
 
     def _get_market_scope_name(self, review_language: str | None = None) -> str:
@@ -789,7 +789,7 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
         return str(value).strip()
 
     @classmethod
-    def _format_news_catalyst_line(cls, idx: int, item: Any, *, language: str = "zh") -> str:
+    def _format_news_catalyst_line(cls, idx: int, item: Any, *, language: str = "ko") -> str:
         fallback_title = "Untitled catalyst" if language == "en" else "未命名线索"
         title = cls._compact_news_text(cls._get_news_field(item, "title"), limit=90) or fallback_title
         source = cls._compact_news_text(cls._get_news_field(item, "source"), limit=40)

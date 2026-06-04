@@ -316,6 +316,12 @@ class TestAliases:
         """测试美股别名"""
         result = generate_aliases('Apple Inc.', 'US')
         assert 'Apple' in result or 'AAPL' in result
+        assert '애플' in result
+
+    def test_us_short_name_korean_aliases(self):
+        result = generate_aliases('APPLE', 'US')
+        assert '애플' in result
+        assert 'AAPL' in result
 
     def test_no_aliases(self):
         """测试无别名的情况"""

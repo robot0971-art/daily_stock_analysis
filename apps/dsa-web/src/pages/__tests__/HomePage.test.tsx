@@ -76,7 +76,7 @@ const historyReport = {
     stockCode: '600519',
     stockName: '구이저우마오타이',
     reportType: 'detailed' as const,
-    reportLanguage: 'zh' as const,
+    reportLanguage: 'ko' as const,
     createdAt: '2026-03-18T08:00:00Z',
   },
   summary: {
@@ -103,7 +103,7 @@ const marketReviewHistoryReport = {
     stockCode: 'MARKET',
     stockName: '\uC2DC\uC7A5 \uB9AC\uBDF0',
     reportType: 'market_review' as const,
-    reportLanguage: 'zh' as const,
+    reportLanguage: 'ko' as const,
     createdAt: '2026-03-18T08:00:00Z',
   },
   summary: {

@@ -176,10 +176,8 @@ def _longbridge_config_kwargs() -> Dict[str, Any]:
         try:
             from src.report_language import normalize_report_language
 
-            rl = normalize_report_language(os.getenv("REPORT_LANGUAGE"), default="zh")
-            if rl == "zh":
-                kw["language"] = Language.ZH_CN
-            elif rl == "en":
+            rl = normalize_report_language(os.getenv("REPORT_LANGUAGE"), default="ko")
+            if rl == "en":
                 kw["language"] = Language.EN
         except Exception as e:
             logger.debug("Longbridge language from REPORT_LANGUAGE skipped: %s", e)

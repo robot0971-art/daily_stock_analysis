@@ -168,7 +168,7 @@ class AnalysisResult:
     operation_advice: str
     decision_type: str = "hold"
     confidence_level: str = "중"
-    report_language: str = "zh"
+    report_language: str = "ko"
     dashboard: Optional[Dict[str, Any]] = None
     trend_analysis: str = ""
     short_term_outlook: str = ""
@@ -428,15 +428,6 @@ class GeminiAnalyzer:
 - Separate "what is happening", "why it matters", and "what would change the view".
 - Never present the output as guaranteed profit or personal financial advice.
 """
-        if lang == "zh":
-            return base_prompt + """
-
-## Output Language
-
-- Keep all JSON keys unchanged.
-- `decision_type` must remain `buy|hold|sell`.
-- Write all human-readable JSON values in Chinese.
-"""
         if lang == "ko":
             return base_prompt + """
 
@@ -454,21 +445,7 @@ class GeminiAnalyzer:
 - "지금 무슨 일이 있는지", "왜 중요한지", "어떤 조건이면 판단이 바뀌는지"를 분리해서 설명한다.
 - 수익을 보장하거나 개인 맞춤 투자 조언처럼 단정하지 않는다.
 """
-        return base_prompt + """
-
-## 출력语言（최고우선순위）
-
-- 모든 JSON 键名保持不变。
-- `decision_type` 필수保持위해 `buy|hold|sell`。
-- 모든面로사용자의人类可读텍스트치필수사용중국어。
-## 초보자도 이해할 수 있는 설명 원칙
-
-- 결론은 투자 초보자가 바로 이해할 수 있게 쉬운 한국어로 설명한다.
-- 어려운 용어를 그대로 쓰지 않는다. 지지선, 저항선, PER, 현금흐름, 이동평균 같은 용어를 쓰면 같은 문장 안에서 쉬운 뜻을 짧게 풀어쓴다.
-- 사람이 읽는 결론 문장은 반드시 "매수", "관망/보유", "매도/비중 축소" 중 무엇을 해야 하는지부터 말한다.
-- "지금 무슨 일이 있는지", "왜 중요한지", "어떤 조건이면 판단이 바뀌는지"를 분리해서 설명한다.
-- 수익을 보장하거나 개인 맞춤 투자 조언처럼 단정하지 않는다.
-"""
+        return base_prompt
 
     def _has_channel_config(self, config: Config) -> bool:
         return bool(config.llm_model_list) and not all(
@@ -1163,7 +1140,7 @@ class GeminiAnalyzer:
         context: Dict[str, Any],
         name: str,
         news_context: Optional[str] = None,
-        report_language: str = "zh",
+        report_language: str = "ko",
     ) -> str:
         code = context.get('code', 'Unknown')
         report_language = normalize_report_language(report_language)
@@ -1554,33 +1531,12 @@ class GeminiAnalyzer:
 - 데이터가 부족하면 “{no_data_text}, 판단하기 어렵습니다”라고 한국어로 설명하세요.
 """
         else:
-            prompt += f"""
+            prompt += """
 
-### 输出语言要求（最高优先级）
-- 所有 JSON 键名必须保持不变，不要翻译键名。
-- `decision_type` 必须保持为 `buy`、`hold`、`sell`。
-- 所有面向用户的人类可读文本值必须使用中文。
-- 当数据缺失时，请用中文直接说明“{no_data_text}，无法判断”。
-"""
-
-        if report_language == "zh":
-            prompt += f"""
-
-### 中文兼容提示
-- 近{news_window_days}日的新闻搜索结果。
-- 财报与分红（价值投资口径）。
-- 每一条都必须带具体日期（YYYY-MM-DD）。
-- 超出近{news_window_days}日窗口的新闻一律忽略。
-- 时间未知、无法确认发布日期的新闻一律忽略。
-- 时间未知、无法确定发布日期的新闻一律忽略。
-- 当前结构是否满足激活技能的关键触发条件。
-- 主力资金流向（操作建议过滤器）。
-- 主力净流入。
-- 资金流只作为价格位置的过滤器：接近压力且主力流出时不得追买。
-- 洗盘观察。
-- 量能异常提示。
-- 技术面一致性。
-- 可能存在异常数据或一次性冲量。
+### Output language requirements (highest priority)
+- Keep every JSON key exactly as defined above; do not translate keys.
+- `decision_type` must remain `buy`, `hold`, or `sell`.
+- All human-readable JSON values must be in English.
 """
 
         if report_language == "en":
@@ -1692,7 +1648,7 @@ class GeminiAnalyzer:
     def _check_content_integrity(self, result: AnalysisResult) -> Tuple[bool, List[str]]:
         return check_content_integrity(result)
 
-    def _build_integrity_complement_prompt(self, missing_fields: List[str], report_language: str = "zh") -> str:
+    def _build_integrity_complement_prompt(self, missing_fields: List[str], report_language: str = "ko") -> str:
         report_language = normalize_report_language(report_language)
         if report_language == "en":
             lines = ["### Completion requirements: fill the missing mandatory fields below and output the full JSON again:"]
@@ -1732,7 +1688,7 @@ class GeminiAnalyzer:
         base_prompt: str,
         previous_response: str,
         missing_fields: List[str],
-        report_language: str = "zh",
+        report_language: str = "ko",
     ) -> str:
         complement = self._build_integrity_complement_prompt(missing_fields, report_language=report_language)
         previous_output = previous_response.strip()

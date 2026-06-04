@@ -10,8 +10,10 @@ Resolve stock name to code: local mapping + pinyin + AkShare fallback + fuzzy ma
 from __future__ import annotations
 
 import difflib
+import json
 import logging
 import time
+from pathlib import Path
 from typing import Dict, Optional, Set, Tuple
 
 from src.data.stock_mapping import STOCK_NAME_MAP
@@ -22,11 +24,87 @@ logger = logging.getLogger(__name__)
 # AkShare result cache: (timestamp, name_to_code_dict)
 _akshare_cache: Optional[tuple[float, Dict[str, str]]] = None
 _AKSHARE_CACHE_TTL = 1800  # 30 MIN
+_stock_index_reverse_cache: Optional[Dict[str, str]] = None
 
 
 def _contains_cjk(text: str) -> bool:
     """Return True when text contains CJK characters."""
     return any("\u3400" <= ch <= "\u9fff" for ch in text)
+
+
+def _contains_hangul(text: str) -> bool:
+    """Return True when text contains Hangul characters."""
+    return any("\uac00" <= ch <= "\ud7a3" for ch in text)
+
+
+def _build_stock_index_reverse_map() -> Dict[str, str]:
+    """
+    Build a name/alias -> canonical code map from the web autocomplete index.
+
+    The frontend index already carries Korean and English aliases such as
+    "애플" -> "AAPL". Reusing it here keeps direct API submissions aligned with
+    what users can search in the web input.
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    candidates = [
+        repo_root / "apps" / "dsa-web" / "public" / "stocks.index.json",
+        repo_root / "static" / "stocks.index.json",
+    ]
+
+    source_path = next((path for path in candidates if path.exists()), None)
+    if source_path is None:
+        return {}
+
+    try:
+        data = json.loads(source_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.warning("[NameResolver] Stock index alias map load failed: %s", exc)
+        return {}
+
+    name_to_codes: Dict[str, Set[str]] = {}
+    for item in data if isinstance(data, list) else []:
+        if isinstance(item, list):
+            if len(item) < 6:
+                continue
+            canonical_code = str(item[0] or "").strip()
+            values = [item[1], item[2], item[3], item[4]]
+            aliases = item[5] if isinstance(item[5], list) else []
+        elif isinstance(item, dict):
+            canonical_code = str(item.get("canonicalCode") or "").strip()
+            values = [
+                item.get("displayCode"),
+                item.get("nameZh"),
+                item.get("nameEn"),
+                item.get("pinyinFull"),
+                item.get("pinyinAbbr"),
+            ]
+            aliases = item.get("aliases") if isinstance(item.get("aliases"), list) else []
+        else:
+            continue
+
+        if not canonical_code:
+            continue
+
+        for raw_name in [*values, *aliases]:
+            if not isinstance(raw_name, str):
+                continue
+            name = raw_name.strip()
+            if name and _contains_hangul(name):
+                name_to_codes.setdefault(name, set()).add(canonical_code)
+                name_to_codes.setdefault(name.upper(), set()).add(canonical_code)
+
+    return {
+        name: next(iter(codes))
+        for name, codes in name_to_codes.items()
+        if len(codes) == 1
+    }
+
+
+def _get_stock_index_reverse_map() -> Dict[str, str]:
+    global _stock_index_reverse_cache
+    if _stock_index_reverse_cache is None:
+        _stock_index_reverse_cache = _build_stock_index_reverse_map()
+    return _stock_index_reverse_cache
 
 
 def _is_code_like(s: str) -> bool:
@@ -170,6 +248,13 @@ def resolve_name_to_code(name: str) -> Optional[str]:
     if s in _LOCAL_AMBIGUOUS_NAMES:
         logger.debug(f"[NameResolver] 命中本地歧义名称，快速返回 None: {s}")
         return None
+
+    stock_index_reverse = _get_stock_index_reverse_map()
+    if s in stock_index_reverse:
+        return stock_index_reverse[s]
+    upper_s = s.upper()
+    if upper_s in stock_index_reverse:
+        return stock_index_reverse[upper_s]
 
     # 3. Pinyin match (exact)
     try:

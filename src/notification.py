@@ -1932,16 +1932,16 @@ class NotificationService(
 
     # Display name mapping for realtime data sources
     _SOURCE_DISPLAY_NAMES = {
-        "tencent": {"zh": "Tencent Finance", "en": "Tencent Finance"},
-        "akshare_em": {"zh": "Eastmoney", "en": "Eastmoney"},
-        "akshare_sina": {"zh": "Sina Finance", "en": "Sina Finance"},
-        "akshare_qq": {"zh": "Tencent Finance", "en": "Tencent Finance"},
-        "efinance": {"zh": "Eastmoney (efinance)", "en": "Eastmoney (efinance)"},
-        "tushare": {"zh": "Tushare Pro", "en": "Tushare Pro"},
-        "sina": {"zh": "Sina Finance", "en": "Sina Finance"},
-        "stooq": {"zh": "Stooq", "en": "Stooq"},
-        "longbridge": {"zh": "Longbridge", "en": "Longbridge"},
-        "fallback": {"zh": "Fallback", "en": "Fallback"},
+        "tencent": {"en": "Tencent Finance"},
+        "akshare_em": {"en": "Eastmoney"},
+        "akshare_sina": {"en": "Sina Finance"},
+        "akshare_qq": {"en": "Tencent Finance"},
+        "efinance": {"en": "Eastmoney (efinance)"},
+        "tushare": {"en": "Tushare Pro"},
+        "sina": {"en": "Sina Finance"},
+        "stooq": {"en": "Stooq"},
+        "longbridge": {"en": "Longbridge"},
+        "fallback": {"en": "Fallback"},
     }
 
     def _get_source_display_name(self, source: Any, language: Optional[str]) -> str:

@@ -8,6 +8,7 @@ import { localizeLegacyText } from '../../utils/legacyKoreanText';
 interface ReportStrategyProps {
   strategy?: ReportStrategyType;
   language?: ReportLanguage;
+  stockCode?: string;
 }
 
 interface StrategyItemProps {
@@ -15,6 +16,23 @@ interface StrategyItemProps {
   value?: string;
   tone: string;
 }
+
+const isUsStockCode = (stockCode?: string): boolean => {
+  const normalized = (stockCode ?? '').trim().toUpperCase();
+  return /^[A-Z]{1,5}(\.[A-Z])?$/.test(normalized) || normalized.endsWith('.US');
+};
+
+const formatStrategyValue = (value: string | undefined, stockCode?: string): string => {
+  const localized = localizeLegacyText(value);
+  if (!localized || !isUsStockCode(stockCode)) {
+    return localized;
+  }
+
+  return localized
+    .replace(/(\d[\d,.]*)\s*원/g, '$1달러')
+    .replace(/(\d[\d,.]*)\s*韩元/g, '$1달러')
+    .replace(/(\d[\d,.]*)\s*위안/g, '$1달러');
+};
 
 const StrategyItem: React.FC<StrategyItemProps> = ({
   label,
@@ -37,7 +55,7 @@ const StrategyItem: React.FC<StrategyItemProps> = ({
 
 /**
  */
-export const ReportStrategy: React.FC<ReportStrategyProps> = ({ strategy, language = 'ko' }) => {
+export const ReportStrategy: React.FC<ReportStrategyProps> = ({ strategy, language = 'ko', stockCode }) => {
   if (!strategy) {
     return null;
   }
@@ -48,22 +66,22 @@ export const ReportStrategy: React.FC<ReportStrategyProps> = ({ strategy, langua
   const strategyItems = [
     {
       label: text.idealBuy,
-      value: localizeLegacyText(strategy.idealBuy),
+      value: formatStrategyValue(strategy.idealBuy, stockCode),
       tone: '--home-strategy-buy',
     },
     {
       label: text.secondaryBuy,
-      value: localizeLegacyText(strategy.secondaryBuy),
+      value: formatStrategyValue(strategy.secondaryBuy, stockCode),
       tone: '--home-strategy-secondary',
     },
     {
       label: text.stopLoss,
-      value: localizeLegacyText(strategy.stopLoss),
+      value: formatStrategyValue(strategy.stopLoss, stockCode),
       tone: '--home-strategy-stop',
     },
     {
       label: text.takeProfit,
-      value: localizeLegacyText(strategy.takeProfit),
+      value: formatStrategyValue(strategy.takeProfit, stockCode),
       tone: '--home-strategy-take',
     },
   ];

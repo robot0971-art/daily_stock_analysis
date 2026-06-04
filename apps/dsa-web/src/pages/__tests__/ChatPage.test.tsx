@@ -205,7 +205,7 @@ describe('ChatPage', () => {
       </MemoryRouter>
     );
 
-    const compressionToggle = await screen.findByRole('checkbox', { name: /上下文压缩/ });
+    const compressionToggle = await screen.findByRole('checkbox', { name: /컨텍스트 압축/ });
 
     await waitFor(() => {
       expect(compressionToggle).not.toBeDisabled();
@@ -230,7 +230,7 @@ describe('ChatPage', () => {
     });
 
     expect(compressionToggle).toBeChecked();
-    expect(screen.getByText('已启用')).toBeInTheDocument();
+    expect(screen.getByText('활성화됨')).toBeInTheDocument();
   });
 
   it('rolls back the context compression switch when saving fails', async () => {
@@ -260,7 +260,7 @@ describe('ChatPage', () => {
       </MemoryRouter>
     );
 
-    const compressionToggle = await screen.findByRole('checkbox', { name: /上下文压缩/ });
+    const compressionToggle = await screen.findByRole('checkbox', { name: /컨텍스트 압축/ });
 
     await waitFor(() => {
       expect(compressionToggle).toBeChecked();
