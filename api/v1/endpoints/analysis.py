@@ -148,7 +148,7 @@ def _run_market_review_background(
             review_kwargs["query_id"] = query_id
         report = run_market_review(**review_kwargs)
         if not report:
-            raise RuntimeError("大盘复盘未返回可持久化报告")
+            raise RuntimeError("시장 리뷰가 저장 가능한 보고서를 반환하지 않았습니다.")
         return {"result": report}
     finally:
         _release_market_review_lock(lock_token)
@@ -510,7 +510,7 @@ def trigger_market_review(
     if override_region == "":
         return MarketReviewAccepted(
             status="accepted",
-            message="今日大盘复盘相关市场均为非交易日，已跳过大盘复盘",
+            message="오늘 시장 리뷰 대상 시장이 모두 휴장일이라 시장 리뷰를 건너뛰었습니다.",
             send_notification=request.send_notification,
             trace_id=None,
         )
@@ -521,7 +521,7 @@ def trigger_market_review(
             status_code=409,
             detail={
                 "error": "duplicate_market_review",
-                "message": "大盘复盘正在执行中，请稍后再试",
+                "message": "시장 리뷰가 실행 중입니다. 잠시 후 다시 시도하세요.",
             },
         )
 
@@ -536,8 +536,8 @@ def trigger_market_review(
                 query_id=task_id,
             ),
             stock_code="market_review",
-            stock_name="大盘复盘",
-            message="大盘复盘任务已提交",
+            stock_name="시장 리뷰",
+            message="시장 리뷰 작업이 제출되었습니다.",
             task_id=task_id,
         )
     except Exception:
@@ -546,7 +546,7 @@ def trigger_market_review(
 
     return MarketReviewAccepted(
         status="accepted",
-        message="大盘复盘任务已提交，完成后会保存报告并按配置推送通知",
+        message="시장 리뷰 작업이 제출되었습니다. 완료 후 보고서를 저장하고 설정에 따라 알림을 보냅니다.",
         send_notification=request.send_notification,
         task_id=task.task_id,
         trace_id=_get_task_trace_id(task),
@@ -1079,6 +1079,8 @@ def _build_analysis_report(
     summary_data = report_data.get("summary", {})
     strategy_data = report_data.get("strategy", {})
     details_data = report_data.get("details", {})
+    chart_analysis_report = report_data.get("chart_analysis_report")
+    event_monitoring_report = report_data.get("event_monitoring_report")
     report_language = normalize_report_language(
         meta_data.get("report_language")
         or (context_snapshot or {}).get("report_language")
@@ -1136,7 +1138,14 @@ def _build_analysis_report(
     )
     details = None
     has_board_details = bool(extracted_boards.get("belong_boards")) or extracted_boards.get("sector_rankings") is not None
-    if details_data or any(extracted_fundamental.values()) or has_board_details or context_snapshot is not None:
+    if (
+        details_data
+        or chart_analysis_report is not None
+        or event_monitoring_report is not None
+        or any(extracted_fundamental.values())
+        or has_board_details
+        or context_snapshot is not None
+    ):
         details = ReportDetails(
             news_content=details_data.get("news_summary") or details_data.get("news_content"),
             raw_result=details_data,
@@ -1145,11 +1154,15 @@ def _build_analysis_report(
             dividend_metrics=extracted_fundamental.get("dividend_metrics"),
             belong_boards=extracted_boards.get("belong_boards"),
             sector_rankings=extracted_boards.get("sector_rankings"),
+            chart_analysis_report=chart_analysis_report,
+            event_monitoring_report=event_monitoring_report,
         )
 
     return AnalysisReport(
         meta=meta,
         summary=summary,
         strategy=strategy,
-        details=details
+        details=details,
+        analysis_map=report_data.get("analysis_map"),
+        analysis_confidence=report_data.get("analysis_confidence"),
     )
