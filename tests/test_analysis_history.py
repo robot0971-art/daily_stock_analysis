@@ -60,12 +60,25 @@ class AnalysisHistoryTestCase(unittest.TestCase):
     def _build_result(self) -> AnalysisResult:
         """构造分析结果"""
         return AnalysisResult(
+            code="005930",
+            name="삼성전자",
+            sentiment_score=78,
+            trend_prediction="낙관",
+            operation_advice="보유",
+            analysis_summary="기본은 견조하고 단기 흐름은 흔들릴 수 있습니다.",
+            report_language="ko",
+        )
+
+    def _build_zh_result(self) -> AnalysisResult:
+        """构造旧中文分析结果。"""
+        return AnalysisResult(
             code="600519",
             name="贵州茅台",
             sentiment_score=78,
             trend_prediction="看多",
             operation_advice="持有",
             analysis_summary="基本面稳健，短期震荡",
+            report_language="zh",
         )
 
     def _save_history(self, query_id: str) -> int:
@@ -75,7 +88,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=result,
             query_id=query_id,
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=None,
             save_snapshot=False,
         )
@@ -100,20 +113,20 @@ class AnalysisHistoryTestCase(unittest.TestCase):
                 }
             }
         }
-        context_snapshot = {"enhanced_context": {"code": "600519"}}
+        context_snapshot = {"enhanced_context": {"code": "005930"}}
 
         saved = self.db.save_analysis_history(
             result=result,
             query_id="query_001",
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=context_snapshot,
             save_snapshot=True
         )
 
         self.assertEqual(saved, 1)
 
-        history = self.db.get_analysis_history(code="600519", days=7, limit=10)
+        history = self.db.get_analysis_history(code="005930", days=7, limit=10)
         self.assertEqual(len(history), 1)
 
         with self.db.get_session() as session:
@@ -135,7 +148,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=result,
             query_id="query_002",
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot={"foo": "bar"},
             save_snapshot=False
         )
@@ -157,7 +170,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=result,
             query_id="query_003",
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=None,
             save_snapshot=False
         )
@@ -176,13 +189,13 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=self._build_result(),
             query_id="query_diag_patch",
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot={
-                "enhanced_context": {"code": "600519"},
+                "enhanced_context": {"code": "005930"},
                 "diagnostics": {
                     "trace_id": "trace-1",
                     "query_id": "query_diag_patch",
-                    "stock_code": "600519",
+                    "stock_code": "005930",
                     "notification_runs": [],
                 },
             },
@@ -192,7 +205,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
 
         updated = self.db.update_analysis_history_diagnostics(
             query_id="query_diag_patch",
-            code="600519",
+            code="005930",
             notification_runs=[
                 {
                     "channel": "report",
@@ -210,7 +223,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             if row is None:
                 self.fail("未找到保存的历史记录")
             snapshot = json.loads(row.context_snapshot or "{}")
-            self.assertEqual(snapshot["enhanced_context"]["code"], "600519")
+            self.assertEqual(snapshot["enhanced_context"]["code"], "005930")
             notification_run = snapshot["diagnostics"]["notification_runs"][-1]
             self.assertEqual(notification_run["status"], "success")
             self.assertEqual(notification_run["trace_id"], "trace-1")
@@ -224,7 +237,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=result,
             query_id="query_004",
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=None,
             save_snapshot=False
         )
@@ -260,7 +273,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=self._build_result(),
             query_id=query_id,
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=context_snapshot,
             save_snapshot=True,
         )
@@ -297,7 +310,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=self._build_result(),
             query_id=query_id,
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=context_snapshot,
             save_snapshot=True,
         )
@@ -330,7 +343,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=self._build_result(),
             query_id=query_id,
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=context_snapshot,
             save_snapshot=True,
         )
@@ -361,7 +374,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=result,
             query_id="query_005",
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=None,
             save_snapshot=False
         )
@@ -398,7 +411,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=result,
             query_id="query_006",
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=None,
             save_snapshot=False
         )
@@ -425,7 +438,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=result,
             query_id="query_007",
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=None,
             save_snapshot=False
         )
@@ -462,7 +475,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=result,
             query_id=query_id,
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=None,
             save_snapshot=False,
         )
@@ -470,7 +483,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
 
         self.db.save_fundamental_snapshot(
             query_id=query_id,
-            code="600519",
+            code="005930",
             payload={
                 "belong_boards": [{"name": "白酒", "type": "行业"}],
                 "boards": {
@@ -510,7 +523,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=self._build_result(),
             query_id=query_id,
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=None,
             save_snapshot=False,
         )
@@ -525,7 +538,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
         }
         saved_snapshot = self.db.save_fundamental_snapshot(
             query_id=query_id,
-            code="600519",
+            code="005930",
             payload=fallback_fundamental,
         )
         self.assertEqual(saved_snapshot, 1)
@@ -550,7 +563,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=self._build_result(),
             query_id=query_id,
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=None,
             save_snapshot=False,
         )
@@ -626,7 +639,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             result=self._build_result(),
             query_id=query_id,
             report_type="simple",
-            news_content="新闻摘要",
+            news_content="뉴스 요약",
             context_snapshot=context_snapshot,
             save_snapshot=True,
         )
@@ -766,6 +779,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             operation_advice="查看复盘",
             analysis_summary="今日大盘复盘",
             raw_response="# 🎯 大盘复盘\n\n## 今日大盘\n\n复盘正文",
+            report_language="zh",
         )
 
         saved = self.db.save_analysis_history(
@@ -831,7 +845,10 @@ class AnalysisHistoryTestCase(unittest.TestCase):
         markdown = HistoryService(self.db).get_markdown_report(str(record_id))
 
         self.assertIsNotNone(markdown)
-        self.assertIn("**筹码**: 筹码分布未启用或数据源暂不可用，未纳入筹码判断。", markdown)
+        self.assertIn(
+            "**매물대**: 매물대 데이터가 없거나 일시적으로 사용할 수 없어 판단에 반영하지 않았습니다.",
+            markdown,
+        )
         self.assertEqual(markdown.count("数据缺失，无法判断"), 0)
 
     def test_history_detail_returns_persisted_market_review_report(self) -> None:
@@ -848,6 +865,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             operation_advice="查看复盘",
             analysis_summary="今日大盘复盘",
             raw_response=report_content,
+            report_language="zh",
         )
 
         saved = self.db.save_analysis_history(
@@ -917,7 +935,16 @@ class AnalysisHistoryTestCase(unittest.TestCase):
 
     def test_history_list_marks_zh_a_share_record_as_legacy(self) -> None:
         """History list should distinguish old zh/CN reports from the KR/US default flow."""
-        self._save_history("query_legacy_list_001")
+        legacy_result = self._build_zh_result()
+        saved = self.db.save_analysis_history(
+            result=legacy_result,
+            query_id="query_legacy_list_001",
+            report_type="simple",
+            news_content="뉴스 요약",
+            context_snapshot=None,
+            save_snapshot=False,
+        )
+        self.assertEqual(saved, 1)
 
         result = AnalysisResult(
             code="AAPL",

@@ -9,6 +9,9 @@ Daily Stock Analysis의 주요 변경 사항을 기록합니다.
 ## [Unreleased]
 
 
+- [수정] 분석 기록 전체 초기화 API가 `DELETE /api/v1/history/reset`에서 다시 동작하도록 복구했습니다.
+- [문서] `.env.example`에 OpenCode Go LLM 채널 예시를 추가해 Web provider 템플릿과 GitHub Actions 환경 변수 계약을 맞췄습니다.
+- [문서] 알림 센터 문서와 Web 설정 도움말 키를 보강해 단계별 계약과 설정 도움말 검증이 통과하도록 정리했습니다.
 - [수정] `REPORT_LANGUAGE=zh` 리포트 렌더링 호환성과 분석 API의 agent trace/detail 응답 필드 보존을 복구했습니다.
 - [수정] CLI dry-run에서 실제 데이터 저장 성공이 실패로 집계되거나 Feishu 문서 생성 오류가 불필요하게 기록되지 않도록 했습니다.
 - [수정] Web AI 상담 화면의 컨텍스트 압축과 이어질문 안내에 남아 있던 이전 중국어 빌드 문구가 한국어로 표시되도록 정적 번들을 갱신했습니다.

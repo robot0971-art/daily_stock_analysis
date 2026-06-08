@@ -240,7 +240,7 @@ class TestApplyPlaceholderFill(unittest.TestCase):
             dashboard={},
         )
         apply_placeholder_fill(result, ["analysis_summary"])
-        self.assertEqual(result.analysis_summary, "待补充")
+        self.assertEqual(result.analysis_summary, "추가예정")
 
     def test_fills_missing_analysis_summary_in_english(self) -> None:
         """English report should use English placeholder text for missing analysis_summary."""
@@ -273,7 +273,7 @@ class TestApplyPlaceholderFill(unittest.TestCase):
         apply_placeholder_fill(result, ["dashboard.battle_plan.sniper_points.stop_loss"])
         self.assertEqual(
             result.dashboard["battle_plan"]["sniper_points"]["stop_loss"],
-            "待补充",
+            "추가예정",
         )
 
     def test_fills_risk_alerts_empty_list(self) -> None:
@@ -372,7 +372,7 @@ class TestApplyPlaceholderFill(unittest.TestCase):
         apply_placeholder_fill(result, ["dashboard.battle_plan.sniper_points.stop_loss"])
         self.assertEqual(
             result.dashboard["battle_plan"]["sniper_points"]["stop_loss"],
-            "待补充",
+            "추가예정",
         )
 
     def test_fills_stop_loss_when_invalid_type(self) -> None:
@@ -390,7 +390,7 @@ class TestApplyPlaceholderFill(unittest.TestCase):
         apply_placeholder_fill(result, ["dashboard.battle_plan.sniper_points.stop_loss"])
         self.assertEqual(
             result.dashboard["battle_plan"]["sniper_points"]["stop_loss"],
-            "待补充",
+            "추가예정",
         )
 
     def test_fills_none_dashboard_blocks_from_existing_context(self) -> None:
@@ -422,7 +422,7 @@ class TestApplyPlaceholderFill(unittest.TestCase):
 
         self.assertEqual(result.dashboard["core_conclusion"]["one_sentence"], "已有趋势摘要")
         self.assertEqual(result.dashboard["intelligence"]["risk_alerts"], ["跌破支撑需减仓"])
-        self.assertEqual(result.dashboard["battle_plan"]["sniper_points"]["stop_loss"], "待补充")
+        self.assertEqual(result.dashboard["battle_plan"]["sniper_points"]["stop_loss"], "추가예정")
 
 
 class TestIntegrityRetryPrompt(unittest.TestCase):

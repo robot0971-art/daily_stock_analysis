@@ -468,7 +468,7 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_brief_report([result], report_date="2026-02-01")
 
-        self.assertIn("*分析模型: gemini/gemini-2.5-flash*", out)
+        self.assertIn("*Model: gemini/gemini-2.5-flash*", out)
 
     @mock.patch("src.notification.get_config")
     def test_generate_dashboard_report_shows_model_by_default(self, mock_get_config: mock.MagicMock):
@@ -486,7 +486,7 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_dashboard_report([result], report_date="2026-02-01")
 
-        self.assertIn("*分析模型：gemini/gemini-2.5-flash*", out)
+        self.assertIn("*Model：gemini/gemini-2.5-flash*", out)
 
     @mock.patch("src.notification.get_config")
     def test_generate_dashboard_report_collapses_unavailable_chip_structure(self, mock_get_config: mock.MagicMock):
@@ -513,7 +513,10 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_dashboard_report([result], report_date="2026-02-01")
 
-        self.assertIn("**筹码**: 筹码分布未启用或数据源暂不可用，未纳入筹码判断。", out)
+        self.assertIn(
+            "**매물대**: 매물대 데이터가 없거나 일시적으로 사용할 수 없어 판단에 반영하지 않았습니다.",
+            out,
+        )
         self.assertEqual(out.count("数据缺失，无法判断"), 0)
 
     @mock.patch("src.notification.get_config")
@@ -536,9 +539,9 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
         dashboard = service.generate_dashboard_report([result], report_date="2026-02-01")
         single = service.generate_single_stock_report(result)
 
-        self.assertNotIn("分析模型", dashboard)
+        self.assertNotIn("Model:", dashboard)
         self.assertNotIn("gemini/gemini-2.5-flash", dashboard)
-        self.assertNotIn("分析模型", single)
+        self.assertNotIn("Model:", single)
         self.assertNotIn("gemini/gemini-2.5-flash", single)
 
     @mock.patch("src.notification.get_config")
@@ -755,21 +758,21 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
         out = service.generate_single_stock_report(result)
 
         # 财务摘要
-        self.assertIn("财务摘要", out)
+        self.assertIn("Financial Summary", out)
         self.assertIn("2024-09-30", out)
-        self.assertIn("12360.00 亿元", out)
+        self.assertIn("12360.00 억원", out)
         self.assertIn("22.45%", out)
         self.assertIn("15.23%", out)
         self.assertIn("91.55%", out)
         # 股东回报
-        self.assertIn("股东回报", out)
+        self.assertIn("주주환원", out)
         self.assertIn("30.8760 元", out)
         self.assertIn("1.85%", out)
         self.assertIn("2024-06-26", out)
         # 关联板块（白酒带 sector 信号；MSCI中国 不在榜单 -> "--"）
-        self.assertIn("关联板块", out)
+        self.assertIn("Related Boards", out)
         self.assertIn("白酒", out)
-        self.assertIn("领涨", out)
+        self.assertIn("Leading", out)
         self.assertIn("+3.42%", out)
         self.assertIn("MSCI中国", out)
 
@@ -790,9 +793,9 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_single_stock_report(result)
 
-        self.assertNotIn("财务摘要", out)
-        self.assertNotIn("股东回报", out)
-        self.assertNotIn("关联板块", out)
+        self.assertNotIn("Financial Summary", out)
+        self.assertNotIn("주주환원", out)
+        self.assertNotIn("Related Boards", out)
 
     @mock.patch("src.notification.get_config")
     def test_generate_single_stock_report_handles_partial_fundamental_context(
@@ -824,10 +827,10 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_single_stock_report(result)
 
-        self.assertNotIn("财务摘要", out)
-        self.assertIn("股东回报", out)
+        self.assertNotIn("Financial Summary", out)
+        self.assertIn("주주환원", out)
         self.assertIn("0.5000 元", out)
-        self.assertNotIn("关联板块", out)
+        self.assertNotIn("Related Boards", out)
 
     @mock.patch("src.notification.get_config")
     def test_generate_single_stock_report_uses_currency_for_us(
@@ -878,11 +881,11 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_single_stock_report(result)
 
-        self.assertIn("财务摘要", out)
-        self.assertIn("亿美元", out)
-        self.assertNotIn("12360.00 亿元", out)
+        self.assertIn("Financial Summary", out)
+        self.assertIn("亿美원", out)
+        self.assertNotIn("12360.00 억원", out)
         # Sample expected formatted values
-        self.assertIn("1110.00 亿美元", out)
+        self.assertIn("1110.00 亿美원", out)
         self.assertIn("141.47%", out)
         # Dividend per share also picks up currency suffix
         self.assertIn("1.0500 美元", out)
@@ -922,12 +925,12 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_single_stock_report(result)
 
-        self.assertIn("关联板块", out)
+        self.assertIn("Related Boards", out)
         self.assertIn("Technology", out)
         self.assertIn("Consumer Electronics", out)
         # When no sector ranking data is available, drop the 4-col layout.
-        self.assertNotIn("板块表现", out)
-        self.assertNotIn("板块涨跌幅", out)
+        self.assertNotIn("Status", out)
+        self.assertNotIn("Change %", out)
         # And no leftover "--" cells either.
         self.assertNotIn("| -- | -- |", out)
 
@@ -961,9 +964,9 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_single_stock_report(result)
 
-        self.assertIn("板块表现", out)
-        self.assertIn("板块涨跌幅", out)
-        self.assertIn("领涨", out)
+        self.assertIn("Status", out)
+        self.assertIn("Change %", out)
+        self.assertIn("Leading", out)
         self.assertIn("+3.42%", out)
         # MSCI中国 falls back to "--" — that's expected for the row without rank data.
         self.assertIn("MSCI中国", out)
@@ -1025,7 +1028,7 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
         out = service.generate_single_stock_report(result)
 
         # Income statement still rendered in CNY (financialCurrency).
-        self.assertIn("10200.00 亿元", out)
+        self.assertIn("10200.00 억원", out)
         # Dividend per share follows the dividend currency, NOT the financial currency.
         self.assertIn("1.9581 港元", out)
         self.assertNotIn("1.9581 元 ", out)
@@ -1093,11 +1096,11 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_dashboard_report([result], report_date="2026-05-20")
 
-        self.assertIn("财务摘要", out)
-        self.assertIn("股东回报", out)
-        self.assertIn("关联板块", out)
+        self.assertIn("Financial Summary", out)
+        self.assertIn("주주환원", out)
+        self.assertIn("Related Boards", out)
         self.assertIn("白酒", out)
-        self.assertIn("领涨", out)
+        self.assertIn("Leading", out)
 
     @mock.patch("src.notification.get_config")
     def test_generate_single_stock_report_shows_evidence_metadata(self, mock_get_config: mock.MagicMock):

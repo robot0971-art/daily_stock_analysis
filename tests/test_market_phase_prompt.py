@@ -84,7 +84,7 @@ class MarketPhasePromptTestCase(unittest.TestCase):
 
         self.assertIn("未知阶段", section)
         self.assertIn("不可可靠推断", section)
-        self.assertIn("交易日历不可用", section)
+        self.assertIn("trading calendar unavailable", section)
         self.assertNotIn("calendar_unavailable", section)
         self.assertNotIn("unknown_warning", section)
 

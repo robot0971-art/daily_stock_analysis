@@ -111,7 +111,7 @@ class TestAnalysisIntegration:
         )
 
         assert response.status_code == 400
-        assert response.json()["message"] == "단일 분석 요청은 최대 50 개 종목까지 지원합니다."
+        assert response.json()["message"] == "한 번에 분석할 수 있는 종목은 최대 50개입니다."
 
     def test_trigger_analysis_metadata_isolation_in_batch(self, client, mock_task_queue):
         """Test that single-stock metadata isn't applied to batch tasks."""

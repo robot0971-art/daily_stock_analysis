@@ -168,6 +168,8 @@ class HistoryService:
 
     @classmethod
     def _display_language_for_record(cls, record, report_language: Optional[str] = None) -> str:
+        if report_language:
+            return normalize_report_language(report_language)
         current_language = cls._current_report_language()
         if current_language == "ko":
             return "ko"

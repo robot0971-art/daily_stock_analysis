@@ -178,6 +178,37 @@ def delete_history_records(
         )
 
 
+@router.delete(
+    "/reset",
+    response_model=DeleteHistoryResponse,
+    responses={
+        200: {"description": "전체 삭제 성공"},
+        500: {"description": "내부 서버 오류", "model": ErrorResponse},
+    },
+    summary="분석 기록 전체 초기화",
+    description="로컬에 저장된 전체 분석 기록과 연결된 백테스트 결과를 삭제합니다.",
+)
+def reset_history_records(
+    db_manager: DatabaseManager = Depends(get_database_manager),
+) -> DeleteHistoryResponse:
+    """
+    Delete all locally stored analysis history records.
+    """
+    try:
+        service = HistoryService(db_manager)
+        deleted = service.delete_all_history_records()
+        return DeleteHistoryResponse(deleted=deleted)
+    except Exception as e:
+        logger.error(f"분석 기록 전체 초기화 실패: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "internal_error",
+                "message": f"분석 기록 전체 초기화 실패: {str(e)}",
+            },
+        )
+
+
 @router.get(
     "/{record_id}",
     response_model=AnalysisReport,

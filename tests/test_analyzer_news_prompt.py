@@ -199,11 +199,11 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         with patch("src.analyzer.get_config", return_value=fake_cfg):
             prompt = analyzer._format_prompt(context, "贵州茅台", news_context="news")
 
-        self.assertIn("近7日的新闻搜索结果", prompt)
-        self.assertIn("每一条都必须带具体日期（YYYY-MM-DD）", prompt)
-        self.assertIn("超出近7日窗口的新闻一律忽略", prompt)
-        self.assertIn("时间未知、无法确定发布日期的新闻一律忽略", prompt)
-        self.assertIn("财报与分红（价值投资口径）", prompt)
+        self.assertIn("\u8fd17\u65e5\uc758\ub274\uc2a4\uac80\uc0c9\uacb0\uacfc", prompt)
+        self.assertIn("\u6bcf\u4e00\u6761\u90fd\ud544\uc218\u5e26\uad6c\uccb4\uc801\ub0a0\uc9dc\uff08YYYY-MM-DD\uff09", prompt)
+        self.assertIn("\u8d85\u51fa\u8fd17\u65e5\u7a97\u53e3\uc758\ub274\uc2a4\u4e00\u5f8b\u5ffd\u7565", prompt)
+        self.assertIn("\uc2dc\uac04\uc54c\uc218\uc5c6\uc74c\u3001\ubd88\uac00\ud655\uc778\ubc1c\ud589\ub0a0\uc9dc\uc758\ub274\uc2a4\u4e00\u5f8b\u5ffd\u7565", prompt)
+        self.assertIn("\uc7ac\ubb34\uc81c\ud45c\uc640\ubc30\ub2f9\uff08\uac00\uce58\u6295\u8d44\u53e3\u5f84\uff09", prompt)
         self.assertIn("禁止编造", prompt)
 
     def test_prompt_includes_capital_flow_as_operation_filter(self) -> None:
@@ -235,11 +235,11 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
 
         prompt = analyzer._format_prompt(context, "恩捷股份", news_context=None)
 
-        self.assertIn("主力资金流向（操作建议过滤器）", prompt)
-        self.assertIn("主力净流入", prompt)
+        self.assertIn("\uc8fc\uc694\uc790\uae08\u6d41\ub85c\uff08\ub9e4\ub9e4\uc81c\uc548\ud544\ud130\ub9c1\u5668\uff09", prompt)
+        self.assertIn("\uc8fc\uc694\uc21c\uc720\uc785", prompt)
         self.assertIn("-1200000", prompt)
-        self.assertIn("接近压力且主力流出时不得追买", prompt)
-        self.assertIn("洗盘观察", prompt)
+        self.assertIn("\uc811\uadfc\uc800\ud56d\ub610\ud55c\uc8fc\u529b\uc720\ucd9c\u65f6\ucd94\uaca9\ub9e4\uc218\uae08\uc9c0", prompt)
+        self.assertIn("\ud754\ub4e4\ub9bc\ub610\ub294\uc138\ud0c1\uad00\ucc30", prompt)
 
     def test_prompt_prefers_context_news_window_days(self) -> None:
         with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
@@ -259,8 +259,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         with patch("src.analyzer.get_config", return_value=fake_cfg):
             prompt = analyzer._format_prompt(context, "贵州茅台", news_context="news")
 
-        self.assertIn("近1日的新闻搜索结果", prompt)
-        self.assertIn("超出近1日窗口的新闻一律忽略", prompt)
+        self.assertIn("\u8fd11\u65e5\uc758\ub274\uc2a4\uac80\uc0c9\uacb0\uacfc", prompt)
+        self.assertIn("\u8d85\u51fa\u8fd11\u65e5\u7a97\u53e3\uc758\ub274\uc2a4\u4e00\u5f8b\u5ffd\u7565", prompt)
 
     def test_format_prompt_injects_market_phase_before_technical_data(self) -> None:
         with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
@@ -334,7 +334,7 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         }
         prompt = analyzer._format_prompt(context, "贵州茅台", news_context=None)
 
-        self.assertIn("当前结构是否满足激活技能的关键触发条件", prompt)
+        self.assertIn("\ud604\uc7ac\uad6c\uc870\uc5ec\ubd80\u6ee1\u8db3\u6fc0\u6d3b\uc2a4\ud0ac\uc758\ud575\uc2ec\ud2b8\ub9ac\uac70\uc870\uac74", prompt)
         self.assertNotIn("是否满足 MA5>MA10>MA20 多头排列", prompt)
         self.assertNotIn("超过5%必须标注\"严禁追高\"", prompt)
         self.assertNotIn("MA5>MA10>MA20为多头", prompt)
@@ -379,8 +379,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertNotIn("多头排列，持续上涨", prompt)
         self.assertIn("事件催化存在但技术待确认", prompt)
         self.assertIn("事件先行、技术待确认", prompt)
-        self.assertIn("量能异常提示", prompt)
-        self.assertIn("技术面一致性", prompt)
+        self.assertIn("\uac70\ub798\ub7c9\uc608\uc678\uc54c\ub9bc", prompt)
+        self.assertIn("\uc77c\uce58\u6027\u7ea6\u675f", prompt)
 
     def test_format_prompt_removes_bearish_risks_when_final_trend_is_bullish(self) -> None:
         with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):

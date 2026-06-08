@@ -84,16 +84,16 @@ def _history_record(*, context_snapshot: dict | None) -> SimpleNamespace:
     return SimpleNamespace(
         id=1,
         query_id="query-p2",
-        code="600519",
-        name="贵州茅台",
+        code="005930",
+        name="삼성전자",
         report_type="detailed",
         created_at=datetime(2026, 5, 24, 12, 0, 0),
         raw_result=json.dumps(
             {
                 "success": True,
                 "model_used": "deepseek-chat",
-                "analysis_summary": "测试摘要",
-                "news_summary": "新闻摘要",
+                "analysis_summary": "진단 테스트",
+                "news_summary": "뉴스 요약",
             },
             ensure_ascii=False,
         ),
@@ -103,10 +103,10 @@ def _history_record(*, context_snapshot: dict | None) -> SimpleNamespace:
             else None
         ),
         sentiment_score=60,
-        operation_advice="持有",
-        trend_prediction="看多",
-        analysis_summary="测试摘要",
-        news_content="新闻摘要",
+        operation_advice="보유",
+        trend_prediction="낙관",
+        analysis_summary="진단 테스트",
+        news_content="뉴스 요약",
         ideal_buy=None,
         secondary_buy=None,
         stop_loss=None,
@@ -393,7 +393,14 @@ class RunDiagnosticsP2TestCase(unittest.TestCase):
         self.assertIn("realtime_quote", endpoint_summary.components)
 
     def test_history_service_returns_unknown_for_legacy_record(self) -> None:
-        db = _FakeHistoryDb(_history_record(context_snapshot=None))
+        record = _history_record(context_snapshot=None)
+        record.code = "600519"
+        record.name = "贵州茅台"
+        record.operation_advice = "持有"
+        record.trend_prediction = "看多"
+        record.analysis_summary = "测试摘要"
+        record.news_content = "新闻摘要"
+        db = _FakeHistoryDb(record)
 
         summary = HistoryService(db).resolve_and_get_diagnostics("1")
 
@@ -409,6 +416,12 @@ class RunDiagnosticsP2TestCase(unittest.TestCase):
 
     def test_history_diagnostics_endpoint_surfaces_malformed_payloads(self) -> None:
         record = _history_record(context_snapshot=None)
+        record.code = "005930"
+        record.name = "삼성전자"
+        record.operation_advice = "보유"
+        record.trend_prediction = "낙관"
+        record.analysis_summary = "진단 테스트"
+        record.news_content = "뉴스 요약"
         record.context_snapshot = "{invalid-json"
         db = _FakeHistoryDb(record)
 

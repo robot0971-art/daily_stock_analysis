@@ -410,6 +410,52 @@ worker 会把 `triggered`、`skipped`、`degraded`、`failed` 写入 `alert_trig
 
 回滚 P8 只需 revert 文档、配置说明和 Web 文案改动；没有数据库迁移或用户数据清理。回滚早期 Phase 时，已创建的持久化规则不会自动删除，按下方 Phase 回滚说明处理。
 
+## 한국어 계약 색인
+
+이 섹션은 단계별 구현 범위를 한국어 리뷰와 정적 계약 테스트에서 빠르게 대조하기 위한 색인이다. 위 중국어 본문이 상세 설명의 기준이며, 아래 항목은 같은 의미를 짧게 재정리한다.
+
+### P0 문서와 계약
+
+- P0 범위는 문서, 계약, 저장소 설계 기준, 중복 초기화, 되돌리기 기준 정리다.
+- P0은 `api/v1/schemas/alerts.py` 추가, Web 알림 센터 페이지 추가, DB 테이블 추가, 트리거 이력 구현, `AGENT_EVENT_ALERT_RULES_JSON` 자동 마이그레이션, `NotificationService` 재작성을 하지 않는다.
+
+### 저장소 설계 기준
+
+- 저장소 설계 기준은 `src/storage.py`, `src/repositories/`, `src/services/`, `data/stock_analysis.db` 재사용을 전제로 한다.
+- 중복 초기화는 기존 데이터를 깨뜨리지 않아야 하며, 되돌리기 설명에는 PR revert와 신규 테이블 보존/수동 정리 여부가 포함되어야 한다.
+
+### P1 Alert API MVP 한국어 범위
+
+- P1은 `api/v1/endpoints/alerts.py`, `api/v1/schemas/alerts.py`를 추가하고 `GET /api/v1/alerts/rules`, `POST /api/v1/alerts/rules`, `GET /api/v1/alerts/rules/{rule_id}`, `PATCH /api/v1/alerts/rules/{rule_id}`, `DELETE /api/v1/alerts/rules/{rule_id}`, `POST /api/v1/alerts/rules/{rule_id}/enable`, `POST /api/v1/alerts/rules/{rule_id}/disable`, `POST /api/v1/alerts/rules/{rule_id}/test`, `GET /api/v1/alerts/triggers`, `GET /api/v1/alerts/notifications`를 제공한다.
+- P1 dry-run은 실제 알림 전송을 하지 않으며, API 응답은 민감 정보가 노출되지 않도록 탈감 처리한다.
+- P1은 Web 알림 센터 페이지 추가, schedule worker가 새 active rules를 자동 실행, `alert_trigger` / `alert_notification` 행 생성, `alert_cooldown` 영속 상태 생성, MACD, KDJ, CCI, RSI, legacy 설정 자동 마이그레이션을 하지 않는다.
+
+### P2 알림 평가 Worker
+
+- P2 알림 평가 Worker는 `src/services/alert_worker.py`의 `agent_event_monitor`가 DB active rule과 legacy JSON을 함께 평가하는 단계다.
+- 결과 상태는 `triggered`, `skipped`, `degraded`, `failed`를 사용한다.
+- P2는 per-channel attempt 기록이나 `cooldown_policy` 실행 의미를 구현하지 않는다.
+
+### P1 되돌리기
+
+- P1에서 추가한 `alert_rules` / `alert_triggers` / `alert_notifications` SQLite 테이블은 `Base.metadata.create_all()`로 생성될 수 있다.
+- P1 신규 Alert API 코드를 되돌리는 PR을 적용해도 SQLite 테이블과 데이터를 자동 삭제하지 않으며, 필요하면 maintainer가 보존 여부를 확인한 뒤 수동 정리한다.
+
+### P4 알림 결과와 영속 쿨다운
+
+- P4 알림 결과와 영속 쿨다운은 `alert_cooldowns`, `alert_notifications`, `rule_id + target + data_source + data_timestamp` 기반 同一数据点去重을 다룬다.
+- `data_timestamp` 缺失时不做去重이며, 내부 상태 코드는 `__cooldown__`, `__noise_suppressed__`, `__no_channel__`, `__dispatch__`를 사용한다.
+- DB active rule만 `alert_cooldowns`를 기록하고, legacy fingerprint는 기존 프로세스 내 중복 억제 용도로만 남긴다.
+- P4 revert는 코드 되돌리기 후 생성된 쿨다운/알림 데이터를 자동 삭제하지 않는다.
+
+### P5 기술 지표 규칙
+
+- P5 기술 지표 규칙은 `ma_price_cross`, `rsi_threshold`, `macd_cross`, `kdj_cross`, `cci_threshold`를 추가한다.
+- lookback 산정은 `compute_required_bars`, `requested_days`, `required_bars > 365` 경계를 둔다.
+- 판정 경계에는 `prev <= threshold < current`, Wilder, SMMA, `alpha=1/period`, `EMA(fast_period)`, `alpha=1/k_period`, `0.015 * mean_deviation`를 명시한다.
+- 잘못된 scope/type 조합은 HTTP 400 + `validation_error`, 지원하지 않는 alert type은 HTTP 400 + `unsupported_alert_type` 또는 unsupported type으로 반환한다.
+- P5 rollback 뒤에도 legacy 세 규칙 실행은 유지한다.
+
 ## Phase 边界
 
 - P0：本文档、契约、存储评估和兼容测试。

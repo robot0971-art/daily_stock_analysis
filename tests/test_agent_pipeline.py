@@ -705,7 +705,7 @@ class TestAgentResultConversion(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(result.sentiment_score, 64)
         self.assertEqual(result.trend_prediction, "多头排列")
-        self.assertEqual(result.operation_advice, "买入")
+        self.assertEqual(result.operation_advice, "매수")
         self.assertEqual(result.decision_type, "buy")
         self.assertIn("trend:fallback", result.data_sources)
 
@@ -745,7 +745,7 @@ class TestAgentResultConversion(unittest.TestCase):
         ok, missing = check_content_integrity(result)
         self.assertTrue(ok, missing)
         self.assertEqual(result.sentiment_score, 68)
-        self.assertEqual(result.analysis_summary, "趋势结论：多头排列；操作建议：买入。")
+        self.assertEqual(result.analysis_summary, "趋势结论：多头排列；操作建议：매수。")
         self.assertEqual(result.dashboard["sentiment_score"], 68)
         self.assertEqual(result.dashboard["core_conclusion"]["one_sentence"], result.analysis_summary)
         self.assertEqual(result.dashboard["intelligence"]["risk_alerts"], ["跌破 MA20 需止损"])
@@ -780,7 +780,7 @@ class TestAgentResultConversion(unittest.TestCase):
             "q-dict-advice",
         )
 
-        self.assertEqual(result.operation_advice, "买入")
+        self.assertEqual(result.operation_advice, "매수")
         self.assertEqual(result.decision_type, "buy")
 
     def test_convert_missing_decision_type_preserves_conditional_hold_advice(self):
@@ -992,11 +992,11 @@ class TestAgentResultConversion(unittest.TestCase):
 
         self.assertEqual(result.sentiment_score, 66)
         self.assertEqual(result.trend_prediction, "多头排列")
-        self.assertEqual(result.operation_advice, "买入")
+        self.assertEqual(result.operation_advice, "매수")
         self.assertEqual(result.decision_type, "buy")
         self.assertEqual(result.dashboard["sentiment_score"], 66)
         self.assertEqual(result.dashboard["trend_prediction"], "多头排列")
-        self.assertEqual(result.dashboard["operation_advice"], "买入")
+        self.assertEqual(result.dashboard["operation_advice"], "매수")
     def test_convert_empty_dashboard_backfills_localized_trend_fallback_for_en(self):
         """English reports should keep trend/advice fallback values localized."""
         pipeline = self._make_pipeline()
@@ -1120,10 +1120,10 @@ class TestAgentResultConversion(unittest.TestCase):
 
         self.assertEqual(result.sentiment_score, 66)
         self.assertEqual(result.trend_prediction, "多头排列")
-        self.assertEqual(result.operation_advice, "买入")
+        self.assertEqual(result.operation_advice, "매수")
         self.assertEqual(result.decision_type, "buy")
         self.assertEqual(result.dashboard["sentiment_score"], 66)
-        self.assertEqual(result.dashboard["operation_advice"], "买入")
+        self.assertEqual(result.dashboard["operation_advice"], "매수")
         self.assertEqual(result.dashboard["core_conclusion"]["one_sentence"], "AI 已给出的核心结论")
         self.assertEqual(result.dashboard["intelligence"]["risk_alerts"], ["AI 风险"])
         self.assertEqual(result.dashboard["battle_plan"]["sniper_points"]["stop_loss"], 108.5)
@@ -1227,8 +1227,8 @@ class TestAgentResultConversion(unittest.TestCase):
         from src.stock_analyzer import BuySignal, TrendAnalysisResult, TrendStatus
 
         cases = [
-            (BuySignal.STRONG_BUY, "buy", "强烈买入"),
-            (BuySignal.STRONG_SELL, "sell", "强烈卖出"),
+            (BuySignal.STRONG_BUY, "buy", "강력 매수"),
+            (BuySignal.STRONG_SELL, "sell", "강력 매도"),
         ]
 
         for buy_signal, expected_decision, expected_advice in cases:
@@ -1649,9 +1649,9 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
 
             self.assertIsNotNone(result)
             self.assertEqual(result.decision_type, "hold")
-            self.assertEqual(result.operation_advice, "洗盘观察")
+            self.assertEqual(result.operation_advice, "Shakeout watch")
             self.assertEqual(result.dashboard.get("decision_type"), "hold")
-            self.assertEqual(result.dashboard.get("operation_advice"), "洗盘观察")
+            self.assertEqual(result.dashboard.get("operation_advice"), "Shakeout watch")
             self.assertEqual(result.dashboard.get("sentiment_score"), result.sentiment_score)
 
     def test_analyze_with_agent_preserves_chip_structure_when_prefetch_missing(self):

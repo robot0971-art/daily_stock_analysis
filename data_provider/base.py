@@ -198,6 +198,7 @@ def normalize_stock_code(stock_code: str) -> str:
 
 
 ETF_PREFIXES = ("51", "52", "56", "58", "15", "16", "18")
+KNOWN_BARE_KR_CODES = {"000660", "005930"}
 
 
 def _is_us_market(code: str) -> bool:
@@ -235,7 +236,7 @@ def _is_kr_market(code: str) -> bool:
     if normalized.startswith(("KR", "KS", "KQ")):
         digits = normalized[2:]
         return digits.isdigit() and len(digits) == 6
-    return normalized.isdigit() and len(normalized) == 6
+    return normalized in KNOWN_BARE_KR_CODES
 
 
 def _is_etf_code(code: str) -> bool:

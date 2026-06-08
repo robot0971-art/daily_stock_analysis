@@ -67,7 +67,10 @@ class TestFetcherSourceOptimization(unittest.TestCase):
             longbridge_access_token="",
         )
 
-        with patch("data_provider.efinance_fetcher.EfinanceFetcher", return_value=_StubFetcher("EfinanceFetcher", 0)), patch(
+        with patch.dict("os.environ", {"KIS_APP_KEY": "", "KIS_APP_SECRET": ""}), patch(
+            "data_provider.efinance_fetcher.EfinanceFetcher",
+            return_value=_StubFetcher("EfinanceFetcher", 0),
+        ), patch(
             "data_provider.akshare_fetcher.AkshareFetcher",
             return_value=_StubFetcher("AkshareFetcher", 1),
         ), patch(

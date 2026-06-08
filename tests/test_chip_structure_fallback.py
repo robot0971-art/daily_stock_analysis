@@ -286,7 +286,10 @@ class TestFillChipStructureIfNeeded(unittest.TestCase):
 
         dp = result.dashboard["data_perspective"]
         self.assertEqual(dp["chip_structure"], {})
-        self.assertEqual(dp["chip_unavailable_reason"], "筹码分布未启用或数据源暂不可用，未纳入筹码判断。")
+        self.assertEqual(
+            dp["chip_unavailable_reason"],
+            "매물대 데이터가 없거나 일시적으로 사용할 수 없어 판단에 반영하지 않았습니다.",
+        )
 
     def test_normalize_treats_zero_chip_metrics_as_unavailable(self) -> None:
         result = self._make_result(
@@ -298,7 +301,10 @@ class TestFillChipStructureIfNeeded(unittest.TestCase):
 
         dp = result.dashboard["data_perspective"]
         self.assertEqual(dp["chip_structure"], {})
-        self.assertEqual(dp["chip_unavailable_reason"], "筹码分布未启用或数据源暂不可用，未纳入筹码判断。")
+        self.assertEqual(
+            dp["chip_unavailable_reason"],
+            "매물대 데이터가 없거나 일시적으로 사용할 수 없어 판단에 반영하지 않았습니다.",
+        )
 
     def test_normalize_accepts_zero_concentration_when_avg_cost_present(self) -> None:
         result = self._make_result(
