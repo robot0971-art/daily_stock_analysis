@@ -30,7 +30,7 @@ const formatStrategyValue = (value: string | undefined, stockCode?: string): str
 
   return localized
     .replace(/(\d[\d,.]*)\s*원/g, '$1달러')
-    .replace(/(\d[\d,.]*)\s*韩元/g, '$1달러')
+    .replace(/(\d[\d,.]*)\s*\u97e9\u5143/g, '$1달러')
     .replace(/(\d[\d,.]*)\s*위안/g, '$1달러');
 };
 

@@ -10,7 +10,7 @@ import type {
   RunDiagnosticSummary,
 } from '../types/analysis';
 
-// ============ API 接口 ============
+// ============ API endpoints ============
 
 export interface GetHistoryListParams extends HistoryFilters {
   page?: number;
@@ -19,8 +19,8 @@ export interface GetHistoryListParams extends HistoryFilters {
 
 export const historyApi = {
   /**
-   * 获取历史分析列表
-   * @param params 筛选和分页参数
+   * 분석 기록 목록을 조회합니다.
+   * @param params 필터와 페이지네이션 파라미터
    */
   getList: async (params: GetHistoryListParams = {}): Promise<HistoryListResponse> => {
     const { stockCode, startDate, endDate, page = 1, limit = 20 } = params;
@@ -44,8 +44,8 @@ export const historyApi = {
   },
 
   /**
-   * 获取历史报告详情
-   * @param recordId 分析历史记录主键 ID（使用 ID 而非 query_id，因为 query_id 在批量分析时可能重复）
+   * 분석 기록 상세를 조회합니다.
+   * @param recordId 분석 기록 기본 키 ID(query_id는 일괄 분석에서 중복될 수 있어 사용하지 않음)
    */
   getDetail: async (recordId: number): Promise<AnalysisReport> => {
     const response = await apiClient.get<Record<string, unknown>>(`/api/v1/history/${recordId}`);
@@ -53,9 +53,9 @@ export const historyApi = {
   },
 
   /**
-   * 获取历史报告关联新闻
-   * @param recordId 分析历史记录主键 ID
-   * @param limit 返回数量限制
+   * 분석 기록과 연결된 뉴스를 조회합니다.
+   * @param recordId 분석 기록 기본 키 ID
+   * @param limit 반환 개수 제한
    */
   getNews: async (recordId: number, limit = 20): Promise<NewsIntelResponse> => {
     const response = await apiClient.get<Record<string, unknown>>(`/api/v1/history/${recordId}/news`, {
@@ -70,9 +70,9 @@ export const historyApi = {
   },
 
   /**
-   * 获取历史报告的 Markdown 格式内容
-   * @param recordId 分析历史记录主键 ID
-   * @returns Markdown 格式的完整报告内容
+   * 분석 기록의 Markdown 본문을 조회합니다.
+   * @param recordId 분석 기록 기본 키 ID
+   * @returns Markdown 형식의 전체 보고서 본문
    */
   getMarkdown: async (recordId: number): Promise<string> => {
     const response = await apiClient.get<{ content: string }>(`/api/v1/history/${recordId}/markdown`);
@@ -80,8 +80,8 @@ export const historyApi = {
   },
 
   /**
-   * 获取历史报告运行诊断摘要
-   * @param recordId 分析历史记录主键 ID
+   * 분석 기록의 실행 진단 요약을 조회합니다.
+   * @param recordId 분석 기록 기본 키 ID
    */
   getDiagnostics: async (recordId: number): Promise<RunDiagnosticSummary> => {
     const response = await apiClient.get<Record<string, unknown>>(`/api/v1/history/${recordId}/diagnostics`);
@@ -89,8 +89,8 @@ export const historyApi = {
   },
 
   /**
-   * 批量删除历史记录
-   * @param recordIds 分析历史记录主键 ID 列表
+   * 분석 기록을 일괄 삭제합니다.
+   * @param recordIds 분석 기록 기본 키 ID 목록
    */
   deleteRecords: async (recordIds: number[]): Promise<{ deleted: number }> => {
     const response = await apiClient.delete<Record<string, unknown>>('/api/v1/history', {

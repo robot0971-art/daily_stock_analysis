@@ -1,4 +1,4 @@
-import type React from 'react';
+﻿import type React from 'react';
 import type {
   ReportDetails as ReportDetailsType,
   ReportMeta,
@@ -68,10 +68,8 @@ export const ReportOverview: React.FC<ReportOverviewProps> = ({
     const normalized = localizeLegacyText((type ?? '').trim());
     if (!normalized) return undefined;
     const typeMap: Record<string, string> = {
-      '行业': '업종',
-      '概念': '테마',
-      '烏뚥툣': '업종',
-      '礖귛영': '산업',
+      '\u884c\u4e1a': '업종',
+      '\u6982\u5ff5': '테마',
       industry: '업종',
       sector: '섹터',
       concept: '테마',
@@ -242,3 +240,4 @@ export const ReportOverview: React.FC<ReportOverviewProps> = ({
     </div>
   );
 };
+

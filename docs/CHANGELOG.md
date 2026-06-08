@@ -89,40 +89,40 @@ Daily Stock Analysis의 주요 변경 사항을 기록합니다.
 - [ci] 데스크톱 변경 시 `apps/dsa-desktop` 테스트를 실행하는 CI 게이트를 추가했습니다.
 - [chore] 언어 아티팩트 검사 스크립트를 추가하고 CI에서 사용자 노출 영역을 검사하도록 연결했습니다.
 - [수정] API 오류 메시지와 Bot 명령 응답에 남아 있던 깨진 문구를 한국어로 정리했습니다.
-<!-- 新条目格式：- [类型] 描述（类型取值：新功能/改进/修复/文档/测试/chore）-->
-<!-- 每条独立一行追加到本段末尾，无需分类标题，合并时冲突最小 -->
-- [改进] `scripts/fetch_tushare_stock_list.py` 可对 A 股中带 `XD`/`XR`/`DR`/`N`/`C` 前缀的名称进行回填修正，供自动补全刷新流程默认使用。
-- [修复] 股票自动补全索引生成缺少 `pypinyin` 时改为直接失败，避免写出缺失拼音字段的降级索引。
-- [修复] 归一腾讯实时行情成交量为股口径，避免量能变化倍数被放大并误导分析报告。
-- [文档] 新增 #1391 Phase 0 运行诊断契约文档，明确 trace_id、诊断摘要、关键链路范围与脱敏/fail-open/retention 边界。
-- [新功能] 落地 #1391 Phase 1 运行诊断最小链路：任务/SSE 追加 trace_id，并记录日线与实时行情 ProviderRun 快照。
-- [改进] Web 路由页面改为按需加载，降低首包体积并增加路由加载失败恢复提示。
-- [修复] Docker 默认部署移除 `.env` 单文件挂载，避免 WebUI 保存配置时因 `os.replace` 更新挂载点触发 `Device or resource busy`。
-- [修复] 收敛 #1391 Phase 0 A 股代码归属边界：补齐 `SH`/`SZ` 前缀场景的归属一致性，明确 `data_provider/baostock_fetcher.py`、`data_provider/pytdx_fetcher.py`、`data_provider/tushare_fetcher.py` 的本轮修复范围。
-- [改进] Web 完整报告 Markdown 抽屉改为按需加载。
-- [改进] 新增市场阶段推断基线并明确盘前、盘中、午休、临近收盘、盘后和非交易日语义。
-- [新功能] 告警中心新增 P7 大盘红绿灯结构化规则，支持 `market_light_status` 与 `market_light_score_drop` 并复用现有 worker、触发历史、通知和冷却链路。
-- [修复] 修复 `STOCK_LIST` 使用裸 A 股代码时 Baostock 等数据源 fallback 的内部格式转换，保持用户配置继续使用 6 位股票编号。
-- [文档] 补齐告警中心 P8 文档与配置收口说明，明确 legacy JSON、高级规则、Web/API、Docker、GitHub Actions 与 Desktop 边界。
-- [修复] Windows 桌面端自动更新在用户确认重启安装后改为静默执行安装器，并在停止内置后端后清理进程引用，降低安装器提示“每日股票分析无法关闭”的概率。
-- [文档] 说明本次桌面修复仅覆盖 Windows NSIS 更新安装链路与后端进程生命周期清理；未改动设置项保存/模型运行时清理语义。移除此前误入的 `docker/Dockerfile` `npm registry` 变更，恢复部署构建与更新修复的职责隔离。
-- [修复] macOS 桌面端将运行时配置迁移到用户数据目录，并在旧 `.app` 包内文件仍可访问时迁移 `.env`、数据库和日志，避免后续替换升级后重新配置。
-- [改进] 新增运行态市场阶段上下文构造与降级测试。
-- [文档] 新增 AnalysisContextPack P0 上下文盘点，明确字段质量状态、现有状态映射和首版 pack 边界。
-- [新功能] 落地 #1391 Phase 2 运行诊断摘要：生成用户可读 RunDiagnosticSummary，提供历史报告诊断 API 与脱敏复制文本。
-- [文档] 明确 #1391 Phase 2 的结构化检测告警为非配置迁移信号：`agent_max_steps`/`agent_orchestrator_timeout_s` 非法值会 fallback 至默认并产生日志告警，新增诊断链路仅新增 `context_snapshot`/`RunDiagnosticSummary` 读写字段，不改写 `litellm_model`、`agent_litellm_model`、`openai_base_url`、LLM channel 路由或配置迁移语义。
-- [新功能] 落地 #1391 Phase 3 运行诊断可见性：报告详情和任务面板默认折叠展示运行状态、trace 与可复制排障信息；后端通过 `api/v1/history/{record_id}/diagnostics` 与 `context_snapshot.diagnostics` 提供历史链路回填。
-- [文档] 补充 #1391 Phase 3 兼容性说明：记录后端诊断持久化、历史查询与通知回写链路变更边界与回滚策略，并补齐后端门禁级验证要求。
-- [测试] 收敛 #1391 Phase 3 后端/API 与 Web 回归检查：`./scripts/ci_gate.sh`、`test_pipeline_market_phase_context.py`、`test_analysis_api_contract.py`、`test_analysis_history.py`、`npm run lint`、`npm run build`。
-- [新功能] 新增 AnalysisContextPack P1 内部契约与脱敏序列化测试。
-- [修复] 恢复 Agent/历史兼容快照中的关联板块与板块联动字段提取，修复新版首页报告缺少“板块联动”的回归问题。
-- [改进] 设置页配置帮助阶段性补齐 Web 设置页实际展示/可配置字段的中英双语文案，覆盖 Agent、回测、报告、通知路由、系统运行时、AI legacy、数据源和通知高级配置。
-- [修复] 修正 Web 设置帮助中 legacy 告警 JSON 字段名与静默时段投递语义说明。
-- [修复] 修复 Web 中文设置页在数据源、通知、系统与 Agent 区域的配置标题、说明和关键下拉选项漏翻问题。
-- [修复] 修复问股会话切换和首页任务重连后可能残留 Agent/分析任务进行中状态的问题。
-- [新功能] 问股新增默认关闭的可见对话上下文压缩，支持 Web 开关、Agent 高级 preset、滚动摘要和最近轮次原文保护，降低长会话 token 消耗。
-- [改进] P2-min：LLM Prompt 注入市场阶段上下文。
-- [修复] 问股 single-agent 新增 provider-aware trace 分轨，跨轮保留 DeepSeek V4 thinking + tool-call 的 `reasoning_content` 与工具协议材料。
+<!-- 새 항목 형식: - [유형] 설명 (유형: 새기능/개선/수정/문서/테스트/chore) -->
+<!-- 각 항목은 [Unreleased] 끝에 한 줄씩 추가하고 별도 분류 제목을 만들지 않습니다. -->
+- [개선] `scripts/fetch_tushare_stock_list.py`가 A-share 이름의 `XD`/`XR`/`DR`/`N`/`C` 접두어를 보정해 자동완성 갱신 흐름에서 사용할 수 있게 했습니다.
+- [수정] 주식 자동완성 인덱스 생성 시 `pypinyin`이 없으면 바로 실패하게 해 병음 필드가 빠진 저품질 인덱스 생성을 막았습니다.
+- [수정] Tencent 실시간 거래량을 주 단위로 정규화해 거래량 변화 배율이 과도하게 커져 분석 보고서를 오도하지 않도록 했습니다.
+- [문서] #1391 Phase 0 실행 진단 계약 문서를 추가해 `trace_id`, 진단 요약, 핵심 경로 범위, 탈감, fail-open, 보존 경계를 명확히 했습니다.
+- [새기능] #1391 Phase 1 실행 진단 최소 경로를 적용해 작업/SSE에 `trace_id`를 추가하고 일봉 및 실시간 시세 `ProviderRun` 스냅샷을 기록합니다.
+- [개선] Web 라우트 페이지를 지연 로딩으로 바꿔 초기 번들 크기를 줄이고 라우트 로딩 실패 복구 안내를 추가했습니다.
+- [수정] Docker 기본 배포에서 `.env` 단일 파일 마운트를 제거해 WebUI 설정 저장 시 `os.replace`가 마운트 지점에서 `Device or resource busy`를 유발하지 않도록 했습니다.
+- [수정] #1391 Phase 0 A-share 코드 소속 경계를 정리해 `SH`/`SZ` 접두어 시나리오의 일관성을 보강하고 관련 fetcher 수정 범위를 명확히 했습니다.
+- [개선] Web 전체 보고서 Markdown drawer를 지연 로딩으로 변경했습니다.
+- [개선] 시장 단계 추론 기준을 추가하고 장전, 장중, 점심 휴장, 마감 임박, 장후, 비거래일 의미를 명확히 했습니다.
+- [새기능] 알림 센터에 P7 시장 신호등 구조화 규칙을 추가해 `market_light_status`와 `market_light_score_drop`를 지원하고 기존 worker, 트리거 이력, 알림, 쿨다운 경로를 재사용합니다.
+- [수정] `STOCK_LIST`에서 bare A-share 코드를 사용할 때 Baostock 등 fallback 데이터 소스의 내부 형식 변환을 복구해 사용자 설정은 6자리 코드로 유지되도록 했습니다.
+- [문서] 알림 센터 P8 문서와 설정 마무리 설명을 보강해 legacy JSON, 고급 규칙, Web/API, Docker, GitHub Actions, Desktop 경계를 명확히 했습니다.
+- [수정] Windows 데스크톱 자동 업데이트가 사용자 재시작 설치 확인 후 설치기를 조용히 실행하고 내장 백엔드 중지 뒤 프로세스 참조를 정리하도록 했습니다.
+- [문서] Windows NSIS 업데이트 설치 경로와 백엔드 프로세스 생명주기 정리만 이번 데스크톱 수정 범위임을 명확히 하고, 잘못 포함됐던 `docker/Dockerfile` `npm registry` 변경을 제거했습니다.
+- [수정] macOS 데스크톱 런타임 설정을 사용자 데이터 디렉터리로 옮기고, 이전 `.app` 파일 접근이 가능하면 `.env`, 데이터베이스, 로그를 마이그레이션하도록 했습니다.
+- [개선] 런타임 시장 단계 컨텍스트 구성과 fallback 테스트를 추가했습니다.
+- [문서] AnalysisContextPack P0 컨텍스트 점검 문서를 추가해 필드 품질 상태, 기존 상태 매핑, 첫 pack 경계를 정리했습니다.
+- [새기능] #1391 Phase 2 실행 진단 요약을 적용해 사용자용 `RunDiagnosticSummary`, 기록 보고서 진단 API, 탈감 복사 텍스트를 제공합니다.
+- [문서] #1391 Phase 2 구조화 감지 알림이 설정 마이그레이션 신호가 아님을 명확히 하고, 새 진단 경로가 LLM 모델/채널 라우팅 설정을 바꾸지 않는다는 경계를 기록했습니다.
+- [새기능] #1391 Phase 3 실행 진단 가시성을 적용해 보고서 상세와 작업 패널에서 상태, trace, 복사 가능한 문제 해결 정보를 접어서 보여줍니다.
+- [문서] #1391 Phase 3 호환성 설명을 추가해 백엔드 진단 저장, 기록 조회, 알림 회신 경로 변경 경계와 rollback 전략을 정리했습니다.
+- [테스트] #1391 Phase 3 백엔드/API 및 Web 회귀 검사를 `./scripts/ci_gate.sh`, 관련 pytest, `npm run lint`, `npm run build`로 정리했습니다.
+- [새기능] AnalysisContextPack P1 내부 계약과 탈감 직렬화 테스트를 추가했습니다.
+- [수정] Agent/기록 호환 스냅샷에서 관련 보드와 보드 연동 필드 추출을 복구해 새 홈 보고서에서 보드 연동이 빠지던 회귀를 수정했습니다.
+- [개선] Web 설정 도움말에 실제 노출/설정 가능한 필드의 안내 문구를 단계적으로 보강했습니다.
+- [수정] Web 설정 도움말에서 legacy 알림 JSON 필드명과 조용한 시간대 전달 의미 설명을 수정했습니다.
+- [수정] Web 설정 페이지의 데이터 소스, 알림, 시스템, Agent 영역에서 제목/설명/주요 선택지가 빠지던 문제를 수정했습니다.
+- [수정] 질문형 상담 세션 전환과 홈 작업 재연결 뒤 Agent/분석 작업 진행 상태가 남을 수 있는 문제를 수정했습니다.
+- [새기능] 질문형 상담에 기본 비활성 상태의 대화 컨텍스트 압축을 추가해 Web 스위치, Agent 고급 preset, rolling summary, 최근 원문 보호를 지원합니다.
+- [개선] P2-min으로 LLM prompt에 시장 단계 컨텍스트를 주입했습니다.
+- [수정] 질문형 single-agent에 provider-aware trace 분리를 추가해 DeepSeek V4 thinking과 tool-call의 `reasoning_content` 및 도구 프로토콜 자료를 다음 턴에도 보존합니다.
 
 ## [3.18.0] - 2026-05-21
 
