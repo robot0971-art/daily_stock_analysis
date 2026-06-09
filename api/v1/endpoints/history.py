@@ -443,7 +443,11 @@ def get_history_news(
             NewsIntelItem(
                 title=item.get("title", ""),
                 snippet=item.get("snippet"),
-                url=item.get("url", "")
+                url=item.get("url", ""),
+                source=item.get("source"),
+                published_date=item.get("published_date"),
+                is_fallback=bool(item.get("is_fallback", False)),
+                fallback_reason=item.get("fallback_reason"),
             )
             for item in items
         ]

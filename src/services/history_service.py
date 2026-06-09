@@ -582,7 +582,35 @@ class HistoryService:
         """Delete all locally stored analysis history records."""
         return self.db.delete_all_analysis_history_records()
 
-    def get_news_intel(self, query_id: str, limit: int = 20) -> List[Dict[str, str]]:
+    @staticmethod
+    def _news_record_to_item(record: Any, *, is_fallback: bool = False) -> Dict[str, Any]:
+        snippet = (getattr(record, "snippet", "") or "").strip()
+        if len(snippet) > 200:
+            snippet = f"{snippet[:197]}..."
+
+        published_date = getattr(record, "published_date", None)
+        if isinstance(published_date, datetime):
+            published_date_value = published_date.date().isoformat()
+        elif isinstance(published_date, date):
+            published_date_value = published_date.isoformat()
+        elif published_date:
+            published_date_value = str(published_date)
+        else:
+            published_date_value = None
+
+        item: Dict[str, Any] = {
+            "title": getattr(record, "title", "") or "",
+            "snippet": snippet,
+            "url": getattr(record, "url", "") or "",
+            "source": getattr(record, "source", None),
+            "published_date": published_date_value,
+            "is_fallback": is_fallback,
+        }
+        if is_fallback:
+            item["fallback_reason"] = "same_stock_recent"
+        return item
+
+    def get_news_intel(self, query_id: str, limit: int = 20) -> List[Dict[str, Any]]:
         """
         Get news intelligence associated with a specified query_id.
 
@@ -595,28 +623,19 @@ class HistoryService:
         """
         try:
             records = self.db.get_news_intel_by_query_id(query_id=query_id, limit=limit)
+            is_fallback = False
 
             if not records:
                 records = self._fallback_news_by_analysis_context(query_id=query_id, limit=limit)
+                is_fallback = bool(records)
 
-            items: List[Dict[str, str]] = []
-            for record in records:
-                snippet = (record.snippet or "").strip()
-                if len(snippet) > 200:
-                    snippet = f"{snippet[:197]}..."
-                items.append({
-                    "title": record.title,
-                    "snippet": snippet,
-                    "url": record.url,
-                })
-
-            return items
+            return [self._news_record_to_item(record, is_fallback=is_fallback) for record in records]
 
         except Exception as e:
             logger.error(f"查询新闻情报失败: {e}", exc_info=True)
             return []
 
-    def get_news_intel_by_record_id(self, record_id: int, limit: int = 20) -> List[Dict[str, str]]:
+    def get_news_intel_by_record_id(self, record_id: int, limit: int = 20) -> List[Dict[str, Any]]:
         """
         Get associated news intelligence based on analysis history record ID.
 
@@ -693,6 +712,41 @@ class HistoryService:
                 continue
             if earliest_allowed <= published <= latest_allowed:
                 filtered.append(item)
+
+        if filtered:
+            return filtered[:limit]
+        if matched:
+            return []
+
+        broad_days = max(30, days, window_days)
+        broad_candidates = self.db.get_recent_news(
+            code=analysis.code,
+            days=broad_days,
+            limit=max(limit * 5, 50),
+        )
+
+        broad_earliest_allowed = anchor_date - timedelta(days=broad_days - 1)
+        seen_urls = set()
+        for item in broad_candidates:
+            if not item.published_date:
+                continue
+            if isinstance(item.published_date, datetime):
+                published = item.published_date.date()
+            elif isinstance(item.published_date, date):
+                published = item.published_date
+            else:
+                continue
+            if not (broad_earliest_allowed <= published <= latest_allowed):
+                continue
+
+            url = getattr(item, "url", None)
+            if url:
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+            filtered.append(item)
+            if len(filtered) >= limit:
+                break
 
         return filtered[:limit]
 

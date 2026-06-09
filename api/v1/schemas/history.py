@@ -76,6 +76,10 @@ class DeleteHistoryResponse(BaseModel):
 
 
 class NewsIntelItem(BaseModel):
+    source: Optional[str] = Field(None, description="News source")
+    published_date: Optional[str] = Field(None, description="Published date")
+    is_fallback: bool = Field(False, description="Whether this item came from same-stock recent-news fallback")
+    fallback_reason: Optional[str] = Field(None, description="Fallback reason")
     """新闻情报条目"""
 
     title: str = Field(..., description="新闻标题")

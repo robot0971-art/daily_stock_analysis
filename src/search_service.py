@@ -1695,6 +1695,145 @@ class BraveSearchProvider(BaseSearchProvider):
         )
 
 
+class YahooFinanceNewsProvider(BaseSearchProvider):
+    """
+    Yahoo Finance news search fallback.
+
+    This provider does not require an API key and gives US tickers a stable
+    finance-news source when generic public search instances are unavailable.
+    """
+
+    API_ENDPOINT = "https://query1.finance.yahoo.com/v1/finance/search"
+    TIMEOUT_SECONDS = 8
+    _IGNORE_QUERY_TOKENS = {
+        "ADR",
+        "ETF",
+        "INC",
+        "LTD",
+        "NEWS",
+        "PLC",
+        "STOCK",
+        "LATEST",
+        "MARKET",
+    }
+
+    def __init__(self):
+        super().__init__(["yahoo-finance"], "YahooFinance")
+
+    @property
+    def is_available(self) -> bool:
+        return True
+
+    @staticmethod
+    def _extract_domain(url: str) -> str:
+        try:
+            parsed = urlparse(url)
+            domain = parsed.netloc.replace("www.", "")
+            return domain or "Yahoo Finance"
+        except Exception:
+            return "Yahoo Finance"
+
+    @classmethod
+    def _normalize_query(cls, query: str) -> str:
+        for token in re.findall(r"\b[A-Z][A-Z0-9.-]{0,9}\b", query or ""):
+            if token in cls._IGNORE_QUERY_TOKENS:
+                continue
+            return token
+        return query
+
+    @staticmethod
+    def _parse_publish_time(value: Any) -> Optional[datetime]:
+        if not isinstance(value, (int, float)):
+            return None
+        try:
+            return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+
+    def _do_search(self, query: str, api_key: str, max_results: int, days: int = 7) -> SearchResponse:
+        yahoo_query = self._normalize_query(query)
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36"
+            ),
+            "Accept": "application/json",
+        }
+        params = {
+            "q": yahoo_query,
+            "quotesCount": 0,
+            "newsCount": max(1, min(max_results * 2, 20)),
+        }
+
+        try:
+            response = _get_with_retry(
+                self.API_ENDPOINT,
+                headers=headers,
+                params=params,
+                timeout=self.TIMEOUT_SECONDS,
+            )
+            if response.status_code != 200:
+                return SearchResponse(
+                    query=query,
+                    results=[],
+                    provider=self.name,
+                    success=False,
+                    error_message=f"HTTP {response.status_code}",
+                )
+
+            payload = response.json()
+            raw_news = payload.get("news", []) if isinstance(payload, dict) else []
+            cutoff = datetime.now(timezone.utc) - timedelta(days=max(1, days))
+            results: List[SearchResult] = []
+
+            for item in raw_news:
+                if not isinstance(item, dict):
+                    continue
+                title = str(item.get("title") or "").strip()
+                link = str(item.get("link") or "").strip()
+                if not title or not link:
+                    continue
+
+                published_at = self._parse_publish_time(item.get("providerPublishTime"))
+                if published_at and published_at < cutoff:
+                    continue
+
+                publisher = str(item.get("publisher") or "").strip()
+                published_date = published_at.strftime("%Y-%m-%d") if published_at else None
+                if publisher and published_date:
+                    snippet = f"{publisher} - {published_date}"
+                else:
+                    snippet = publisher or published_date or ""
+
+                results.append(
+                    SearchResult(
+                        title=title,
+                        snippet=snippet,
+                        url=link,
+                        source=publisher or self._extract_domain(link),
+                        published_date=published_date,
+                    )
+                )
+                if len(results) >= max_results:
+                    break
+
+            return SearchResponse(
+                query=query,
+                results=results,
+                provider=self.name,
+                success=True,
+            )
+        except Exception as exc:
+            logger.warning("[YahooFinance] Search failed: %s", exc)
+            return SearchResponse(
+                query=query,
+                results=[],
+                provider=self.name,
+                success=False,
+                error_message=str(exc),
+            )
+
+
 class SearXNGSearchProvider(BaseSearchProvider):
     """
     SearXNG search engine (self-hosted, no quota).
@@ -2234,6 +2373,9 @@ class SearchService:
             logger.info(f"已配置 MiniMax 搜索，共 {len(minimax_keys)} 个 API Key")
 
         # 6. SearXNG（自建实例优先；未配置时可自动发现公共实例）
+        self._yahoo_finance_provider = YahooFinanceNewsProvider()
+        logger.info("Enabled Yahoo Finance news fallback")
+
         searxng_provider = SearXNGSearchProvider(
             searxng_base_urls,
             use_public_instances=bool(searxng_public_instances_enabled and not searxng_base_urls),
@@ -2305,6 +2447,11 @@ class SearchService:
         """判断是否为美股/美股指数代码。"""
         code = (stock_code or "").strip().upper()
         return bool(cls._US_STOCK_RE.match(code) or is_us_index_code(code))
+
+    @classmethod
+    def _is_us_equity_symbol(cls, stock_code: str) -> bool:
+        code = (stock_code or "").strip().upper()
+        return bool(cls._US_STOCK_RE.match(code)) and not is_us_index_code(code)
 
     @classmethod
     def _should_prefer_chinese_news(
@@ -3393,6 +3540,34 @@ class SearchService:
             if best_ranked_response is not None:
                 self._put_cache(cache_key, best_ranked_response)
                 return best_ranked_response
+
+            if self._is_us_equity_symbol(stock_code):
+                response = self._yahoo_finance_provider.search(
+                    query,
+                    provider_max_results,
+                    days=search_days,
+                )
+                filtered_response = self._filter_news_response(
+                    response,
+                    search_days=search_days,
+                    max_results=provider_max_results,
+                    log_scope=f"{stock_code}:YahooFinance:stock_news",
+                )
+                if filtered_response.success and filtered_response.results:
+                    ranked_response = self._rank_news_response(
+                        filtered_response,
+                        stock_code=stock_code,
+                        stock_name=stock_name,
+                        prefer_chinese=False,
+                        max_results=provider_max_results,
+                        log_scope=f"{stock_code}:YahooFinance:stock_news",
+                    )
+                    limited_response = self._limit_search_response(
+                        ranked_response,
+                        max_results=max_results,
+                    )
+                    self._put_cache(cache_key, limited_response)
+                    return limited_response
 
             if had_provider_success:
                 return SearchResponse(

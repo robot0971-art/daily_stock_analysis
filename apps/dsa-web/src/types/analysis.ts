@@ -410,6 +410,10 @@ export interface NewsIntelItem {
   title: string;
   snippet: string;
   url: string;
+  source?: string;
+  publishedDate?: string;
+  isFallback?: boolean;
+  fallbackReason?: string;
 }
 
 /** News response */

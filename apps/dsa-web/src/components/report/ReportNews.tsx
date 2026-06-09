@@ -16,6 +16,7 @@ interface ReportNewsProps {
 export const ReportNews: React.FC<ReportNewsProps> = ({ recordId, limit = 8, language = 'ko' }) => {
   const reportLanguage = normalizeReportLanguage(language);
   const text = getReportText(reportLanguage);
+  const previousNewsLabel = reportLanguage === 'en' ? 'Previous news' : '이전 뉴스';
   const [isLoading, setIsLoading] = useState(false);
   const [items, setItems] = useState<NewsIntelItem[]>([]);
   const [error, setError] = useState<ParsedApiError | null>(null);
@@ -109,9 +110,16 @@ export const ReportNews: React.FC<ReportNewsProps> = ({ recordId, limit = 8, lan
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="home-news-title text-sm font-medium leading-6 text-foreground text-left">
-                    {item.title}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="home-news-title text-sm font-medium leading-6 text-foreground text-left">
+                      {item.title}
+                    </p>
+                    {item.isFallback ? (
+                      <span className="rounded border border-cyan-400/40 bg-cyan-400/10 px-2 py-0.5 text-[11px] font-medium text-cyan-300">
+                        {previousNewsLabel}
+                      </span>
+                    ) : null}
+                  </div>
                   {item.snippet && (
                     <p className="home-news-snippet mt-2 text-sm leading-6 text-secondary-text text-left overflow-hidden [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical]">
                       {item.snippet}

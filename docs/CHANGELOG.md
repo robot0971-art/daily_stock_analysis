@@ -9,6 +9,7 @@ Daily Stock Analysis의 주요 변경 사항을 기록합니다.
 ## [Unreleased]
 
 
+- [개선] 미국 주식 뉴스 검색에 Yahoo Finance fallback을 추가하고, 분석 기록에 직접 연결된 뉴스가 없으면 같은 종목의 최근 저장 뉴스를 이전 뉴스로 표시하도록 보강했습니다.
 - [수정] 분석 기록 전체 초기화 API가 `DELETE /api/v1/history/reset`에서 다시 동작하도록 복구했습니다.
 - [문서] `.env.example`에 OpenCode Go LLM 채널 예시를 추가해 Web provider 템플릿과 GitHub Actions 환경 변수 계약을 맞췄습니다.
 - [문서] 알림 센터 문서와 Web 설정 도움말 키를 보강해 단계별 계약과 설정 도움말 검증이 통과하도록 정리했습니다.
