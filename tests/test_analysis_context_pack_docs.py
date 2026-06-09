@@ -254,5 +254,5 @@ def test_analysis_context_pack_doc_updates_indexes_and_changelog() -> None:
         "<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-red?style=flat)</sub></sub> "
         "(Chinese-only)"
     ) in index_en
-    assert "[文档] 新增 AnalysisContextPack P0 上下文盘点" in changelog
-    assert "[新功能] 新增 AnalysisContextPack P1 内部契约与脱敏序列化测试" in changelog
+    assert "[문서] AnalysisContextPack P0 컨텍스트 점검 문서를 추가" in changelog
+    assert "[새기능] AnalysisContextPack P1 내부 계약과 탈감 직렬화 테스트를 추가" in changelog

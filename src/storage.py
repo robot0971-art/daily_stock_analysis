@@ -2163,15 +2163,17 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
 
     def get_conversation_history(self, session_id: str, limit: int = 20) -> List[Dict[str, Any]]:
         """
-        获取 Agent 对话历史
+        Return Agent conversation history in chronological order.
         """
         with self.session_scope() as session:
             stmt = select(ConversationMessage).filter(
                 ConversationMessage.session_id == session_id
-            ).order_by(ConversationMessage.created_at.desc()).limit(limit)
+            ).order_by(
+                ConversationMessage.created_at.desc(),
+                ConversationMessage.id.desc(),
+            ).limit(limit)
             messages = session.execute(stmt).scalars().all()
 
-            # 倒序返回，保证时间顺序
             return [{"role": msg.role, "content": msg.content} for msg in reversed(messages)]
 
     def get_visible_conversation_messages(self, session_id: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
@@ -2473,13 +2475,13 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
 
     def get_conversation_messages(self, session_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         """
-        获取单个会话的完整消息列表（用于前端恢复历史）
+        Return a session's full message list for frontend history restore.
         """
         with self.session_scope() as session:
             stmt = (
                 select(ConversationMessage)
                 .where(ConversationMessage.session_id == session_id)
-                .order_by(ConversationMessage.created_at)
+                .order_by(ConversationMessage.created_at, ConversationMessage.id)
                 .limit(limit)
             )
             messages = session.execute(stmt).scalars().all()
