@@ -1,5 +1,6 @@
 export * from './ReportSummary';
 export * from './ReportDiagnostics';
+export * from './ReportEvidenceSummary';
 export * from './ReportOverview';
 export * from './ReportStrategy';
 export * from './ReportNews';
