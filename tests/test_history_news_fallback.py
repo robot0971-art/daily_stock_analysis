@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from src.services.history_service import HistoryService
+from src.search_service import SearchResponse, SearchResult
 
 
 class HistoryNewsFallbackTestCase(unittest.TestCase):
@@ -123,6 +124,41 @@ class HistoryNewsFallbackTestCase(unittest.TestCase):
         self.assertEqual(result[0]["fallback_reason"], "same_stock_recent")
         self.assertEqual(result[0]["source"], "Example")
         self.assertRegex(result[0]["published_date"], r"^\d{4}-\d{2}-\d{2}$")
+
+    def test_get_news_intel_uses_live_us_news_fallback_when_no_saved_news_exists(self) -> None:
+        now = datetime.now()
+        analysis = SimpleNamespace(code="AAPL", name="Apple Inc.", created_at=now)
+        response = SearchResponse(
+            query="Apple Inc. AAPL stock latest news",
+            results=[
+                SearchResult(
+                    title="live apple news",
+                    snippet="Yahoo Finance - 2026-06-10",
+                    url="https://example.com/live-aapl",
+                    source="Yahoo Finance",
+                    published_date="2026-06-10",
+                )
+            ],
+            provider="YahooFinance",
+            success=True,
+        )
+        search_service = SimpleNamespace(search_stock_news=MagicMock(return_value=response))
+
+        mock_db = MagicMock()
+        mock_db.get_news_intel_by_query_id.return_value = []
+        mock_db.get_analysis_history.return_value = [analysis]
+        mock_db.get_recent_news.return_value = []
+        mock_db.save_news_intel.return_value = 1
+
+        svc = HistoryService(db_manager=mock_db)
+        with patch("src.search_service.get_search_service", return_value=search_service):
+            result = svc.get_news_intel("q-1", limit=8)
+
+        self.assertEqual(result[0]["title"], "live apple news")
+        self.assertTrue(result[0]["is_fallback"])
+        self.assertEqual(result[0]["fallback_reason"], "live_search")
+        search_service.search_stock_news.assert_called_once_with("AAPL", "Apple Inc.", max_results=8)
+        mock_db.save_news_intel.assert_called_once()
 
 
 if __name__ == "__main__":

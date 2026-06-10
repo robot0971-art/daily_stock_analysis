@@ -583,7 +583,12 @@ class HistoryService:
         return self.db.delete_all_analysis_history_records()
 
     @staticmethod
-    def _news_record_to_item(record: Any, *, is_fallback: bool = False) -> Dict[str, Any]:
+    def _news_record_to_item(
+        record: Any,
+        *,
+        is_fallback: bool = False,
+        fallback_reason: Optional[str] = None,
+    ) -> Dict[str, Any]:
         snippet = (getattr(record, "snippet", "") or "").strip()
         if len(snippet) > 200:
             snippet = f"{snippet[:197]}..."
@@ -607,7 +612,7 @@ class HistoryService:
             "is_fallback": is_fallback,
         }
         if is_fallback:
-            item["fallback_reason"] = "same_stock_recent"
+            item["fallback_reason"] = fallback_reason or "same_stock_recent"
         return item
 
     def get_news_intel(self, query_id: str, limit: int = 20) -> List[Dict[str, Any]]:
@@ -627,7 +632,20 @@ class HistoryService:
 
             if not records:
                 records = self._fallback_news_by_analysis_context(query_id=query_id, limit=limit)
-                is_fallback = bool(records)
+                if records:
+                    return [
+                        self._news_record_to_item(
+                            record,
+                            is_fallback=True,
+                            fallback_reason="same_stock_recent",
+                        )
+                        for record in records
+                    ]
+
+            if not records:
+                live_items = self._live_news_by_analysis_context(query_id=query_id, limit=limit)
+                if live_items:
+                    return live_items
 
             return [self._news_record_to_item(record, is_fallback=is_fallback) for record in records]
 
@@ -749,6 +767,71 @@ class HistoryService:
                 break
 
         return filtered[:limit]
+
+    def _live_news_by_analysis_context(self, query_id: str, limit: int) -> List[Dict[str, Any]]:
+        """
+        Last-resort live news lookup for persisted records that have no saved
+        news rows. This keeps old US-stock reports useful after search fallback
+        improvements without requiring a full re-analysis.
+        """
+        records = self.db.get_analysis_history(query_id=query_id, limit=1)
+        if not records:
+            return []
+
+        analysis = records[0]
+        code = (getattr(analysis, "code", "") or "").strip()
+        name = (getattr(analysis, "name", "") or code).strip()
+        if not code:
+            return []
+
+        try:
+            from src.search_service import SearchService, get_search_service
+
+            if not SearchService._is_us_equity_symbol(code):
+                return []
+
+            search_service = get_search_service()
+            response = search_service.search_stock_news(code, name, max_results=limit)
+            if not response.success or not response.results:
+                return []
+
+            try:
+                self.db.save_news_intel(
+                    code=code,
+                    name=name,
+                    dimension="latest_news",
+                    query=response.query,
+                    response=response,
+                    query_context={
+                        "query_id": query_id,
+                        "query_source": "history_news_live_fallback",
+                    },
+                )
+            except Exception as exc:
+                logger.warning("Failed to persist live news fallback for %s: %s", query_id, exc)
+
+            persisted = self.db.get_news_intel_by_query_id(query_id=query_id, limit=limit)
+            if persisted:
+                return [
+                    self._news_record_to_item(
+                        record,
+                        is_fallback=True,
+                        fallback_reason="live_search",
+                    )
+                    for record in persisted
+                ]
+
+            return [
+                self._news_record_to_item(
+                    record,
+                    is_fallback=True,
+                    fallback_reason="live_search",
+                )
+                for record in response.results[:limit]
+            ]
+        except Exception as exc:
+            logger.warning("Live news fallback failed for %s: %s", query_id, exc)
+            return []
 
     def _get_sentiment_label(self, score: int) -> str:
         """
