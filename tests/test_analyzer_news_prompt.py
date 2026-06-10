@@ -22,6 +22,13 @@ from src.analyzer import (
 
 
 class AnalyzerNewsPromptTestCase(unittest.TestCase):
+    def test_analysis_max_output_tokens_follow_report_type(self) -> None:
+        self.assertEqual(GeminiAnalyzer._analysis_max_output_tokens("brief"), 3072)
+        self.assertEqual(GeminiAnalyzer._analysis_max_output_tokens("simple"), 4096)
+        self.assertEqual(GeminiAnalyzer._analysis_max_output_tokens("detailed"), 4096)
+        self.assertEqual(GeminiAnalyzer._analysis_max_output_tokens("full"), 8192)
+        self.assertEqual(GeminiAnalyzer._analysis_max_output_tokens(None), 8192)
+
     def test_contains_trend_hint_treats_non_adjacent_negation_as_negated(self) -> None:
         self.assertFalse(_contains_trend_hint("尚未形成上升趋势，继续观察。", _BULLISH_TREND_HINTS))
         self.assertFalse(_contains_trend_hint("未形成上升趋势，继续观察。", _BULLISH_TREND_HINTS))

@@ -226,7 +226,7 @@ class RunDiagnosticsP2TestCase(unittest.TestCase):
         )
 
         self.assertEqual(summary["status"], "degraded")
-        self.assertEqual(summary["status_label"], "部分降级")
+        self.assertEqual(summary["status_label"], "확인 필요")
         self.assertEqual(summary["components"]["realtime_quote"]["status"], "degraded")
         self.assertEqual(summary["components"]["daily_data"]["status"], "ok")
         self.assertEqual(summary["components"]["llm"]["status"], "ok")
@@ -257,7 +257,7 @@ class RunDiagnosticsP2TestCase(unittest.TestCase):
 
         self.assertEqual(summary["status"], "failed")
         self.assertEqual(summary["components"]["llm"]["status"], "failed")
-        self.assertIn("LLM 失败", summary["reason"])
+        self.assertIn("LLM 실패", summary["reason"])
         self.assertNotIn("secret-value", summary["copy_text"])
 
     def test_copy_text_redacts_authorization_bearer_tokens(self) -> None:

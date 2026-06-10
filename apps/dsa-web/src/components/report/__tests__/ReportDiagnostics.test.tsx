@@ -20,7 +20,7 @@ const diagnosticSummary: RunDiagnosticSummary = {
   status: 'degraded',
   statusLabel: '部分降级',
   reason: '实时行情 baostock 成功，前置数据源失败后已继续',
-  copyText: 'trace_id: trace-1234567890abcdef\ndata_status: degraded',
+  copyText: 'trace_id: trace-1234567890abcdef\nreason: 实时行情 baostock 成功，前置数据源失败后已继续',
   components: {
     realtimeQuote: {
       key: 'realtime_quote',
@@ -58,24 +58,29 @@ describe('ReportDiagnostics', () => {
     render(<ReportDiagnostics recordId={1} />);
 
     expect(historyApi.getDiagnostics).toHaveBeenCalledWith(1);
-    expect(await screen.findByText('数据可靠性')).toBeInTheDocument();
+    expect(await screen.findByText('데이터 신뢰도')).toBeInTheDocument();
     const panel = screen.getByTestId('run-diagnostics');
     expect(panel).not.toHaveAttribute('open');
-    expect(screen.getByText('部分降级')).toBeInTheDocument();
+    expect(screen.getAllByText('확인 필요').length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByText('数据可靠性'));
+    fireEvent.click(screen.getByText('데이터 신뢰도'));
 
     expect(panel).toHaveAttribute('open');
-    expect(screen.getByText('最近失败后已降级')).toBeInTheDocument();
-    expect(screen.getByText('未配置')).toBeInTheDocument();
+    expect(screen.getAllByText('실시간 시세: baostock 성공, 이전 데이터 소스 실패 후 계속 진행했습니다').length)
+      .toBeGreaterThan(0);
+    expect(screen.getByText('실시간 시세')).toBeInTheDocument();
+    expect(screen.getByText('알림')).toBeInTheDocument();
+    expect(screen.getByText('미설정')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '复制排障信息' }));
+    fireEvent.click(screen.getByRole('button', { name: '진단 복사' }));
 
     await waitFor(() => {
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(diagnosticSummary.copyText);
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        'trace_id: trace-1234567890abcdef\nreason: 실시간 시세: baostock 성공, 이전 데이터 소스 실패 후 계속 진행했습니다',
+      );
     });
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '已复制' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '복사됨' })).toBeInTheDocument();
     });
   });
 
@@ -83,8 +88,8 @@ describe('ReportDiagnostics', () => {
     render(<ReportDiagnostics summary={diagnosticSummary} />);
 
     expect(historyApi.getDiagnostics).not.toHaveBeenCalled();
-    expect(screen.getByText('数据可靠性')).toBeInTheDocument();
-    expect(screen.getByText('部分降级')).toBeInTheDocument();
+    expect(screen.getByText('데이터 신뢰도')).toBeInTheDocument();
+    expect(screen.getAllByText('확인 필요').length).toBeGreaterThan(0);
   });
 
   it('refetches diagnostics after StrictMode cleans up the first effect run', async () => {
@@ -99,6 +104,6 @@ describe('ReportDiagnostics', () => {
     await waitFor(() => {
       expect(historyApi.getDiagnostics).toHaveBeenCalledTimes(2);
     });
-    expect(await screen.findByText('数据可靠性')).toBeInTheDocument();
+    expect(await screen.findByText('데이터 신뢰도')).toBeInTheDocument();
   });
 });

@@ -114,6 +114,66 @@ const compactId = (value?: string): string | null => {
   return `${text.slice(0, 10)}...${text.slice(-8)}`;
 };
 
+const KO_COMPONENT_LABELS: Record<string, string> = {
+  realtime_quote: '실시간 시세',
+  daily_data: '일봉 데이터',
+  news: '뉴스 검색',
+  llm: 'LLM',
+  notification: '알림',
+  history: '기록 저장',
+};
+
+const normalizeLegacyDiagnosticText = (value?: string): string => {
+  let text = (value || '').trim();
+  if (!text) return text;
+
+  text = text
+    .replace(/实时行情\s*([^，\s]+)\s*成功，前置数据源失败后已继续/g, '실시간 시세: $1 성공, 이전 데이터 소스 실패 후 계속 진행했습니다')
+    .replace(/日线数据\s*([^，\s]+)\s*成功，前置数据源失败后已继续/g, '일봉 데이터: $1 성공, 이전 데이터 소스 실패 후 계속 진행했습니다')
+    .replace(/实时行情\s*([^，\s]+)\s*成功/g, '실시간 시세: $1 성공')
+    .replace(/日线数据\s*([^，\s]+)\s*成功/g, '일봉 데이터: $1 성공')
+    .replace(/新闻检索返回\s*(\d+)\s*条结果/g, '뉴스 검색 결과 $1건을 찾았습니다')
+    .replace(/LLM\s+([^，\s]+)\s*成功，期间发生过失败或模型切换/g, 'LLM $1 성공, 중간에 실패 또는 모델 전환이 있었습니다')
+    .replace(/LLM\s+([^，\s]+)\s*成功/g, 'LLM $1 성공');
+
+  const replacements: Array<[RegExp, string]> = [
+    [/旧报告或诊断证据不足，无法判断本次运行状态/g, '이전 보고서이거나 진단 근거가 부족해 이번 실행 상태를 판단할 수 없습니다'],
+    [/可用诊断证据不足，无法判断本次运行状态/g, '사용 가능한 진단 근거가 부족해 이번 실행 상태를 판단할 수 없습니다'],
+    [/实时行情/g, '실시간 시세'],
+    [/日线数据/g, '일봉 데이터'],
+    [/新闻搜索/g, '뉴스 검색'],
+    [/新闻检索/g, '뉴스 검색'],
+    [/新闻搜索无结果/g, '뉴스 검색 결과가 없습니다'],
+    [/新闻检索未记录原始证据，可能未尝试或未启用/g, '뉴스 원본 근거가 기록되지 않았습니다'],
+    [/新闻搜索未记录诊断信息/g, '뉴스 검색 진단 정보가 기록되지 않았습니다'],
+    [/前置数据源失败后已继续/g, '이전 데이터 소스 실패 후 계속 진행했습니다'],
+    [/通知未配置或本次跳过/g, '알림이 설정되지 않았거나 이번 실행에서 건너뛰었습니다'],
+    [/通知结果未记录/g, '알림 결과가 기록되지 않았습니다'],
+    [/通知发送成功/g, '알림 전송 성공'],
+    [/部分通知渠道失败，其余渠道已发送/g, '일부 알림 채널이 실패했고 나머지 채널은 전송되었습니다'],
+    [/通知失败：/g, '알림 실패: '],
+    [/通知/g, '알림'],
+    [/历史保存/g, '기록 저장'],
+    [/报告历史已保存/g, '분석 기록이 저장되었습니다'],
+    [/报告历史保存失败/g, '분석 기록 저장 실패'],
+    [/未记录诊断信息/g, '진단 정보가 기록되지 않았습니다'],
+    [/所有数据源尝试失败/g, '모든 데이터 소스 시도가 실패했습니다'],
+    [/失败：/g, '실패: '],
+    [/成功/g, '성공'],
+    [/未知错误/g, '알 수 없는 오류'],
+  ];
+
+  return replacements.reduce((current, [pattern, replacement]) => (
+    current.replace(pattern, replacement)
+  ), text);
+};
+
+const normalizeDiagnosticComponent = (component: RunDiagnosticComponent): RunDiagnosticComponent => ({
+  ...component,
+  label: KO_COMPONENT_LABELS[component.key] || normalizeLegacyDiagnosticText(component.label),
+  message: normalizeLegacyDiagnosticText(component.message),
+});
+
 const getOrderedComponents = (
   components?: Record<string, RunDiagnosticComponent>,
 ): RunDiagnosticComponent[] => {
@@ -215,11 +275,19 @@ export const ReportDiagnostics: React.FC<ReportDiagnosticsProps> = ({
 
   const statusStyle = OVERALL_STATUS_STYLE[visibleSummary.status] || OVERALL_STATUS_STYLE.unknown;
   const statusLabel = text.overall[visibleSummary.status] || visibleSummary.statusLabel;
-  const components = getOrderedComponents(visibleSummary.components);
+  const reason = reportLanguage === 'ko'
+    ? normalizeLegacyDiagnosticText(visibleSummary.reason)
+    : visibleSummary.reason;
+  const components = getOrderedComponents(visibleSummary.components).map((component) => (
+    reportLanguage === 'ko' ? normalizeDiagnosticComponent(component) : component
+  ));
   const traceId = compactId(visibleSummary.traceId);
   const taskId = compactId(visibleSummary.taskId);
   const queryId = compactId(visibleSummary.queryId);
-  const hasCopyText = Boolean(visibleSummary.copyText && !isLoading);
+  const copyText = reportLanguage === 'ko'
+    ? normalizeLegacyDiagnosticText(visibleSummary.copyText)
+    : visibleSummary.copyText;
+  const hasCopyText = Boolean(copyText && !isLoading);
   const advancedPayload = {
     traceId: visibleSummary.traceId,
     taskId: visibleSummary.taskId,
@@ -250,7 +318,7 @@ export const ReportDiagnostics: React.FC<ReportDiagnosticsProps> = ({
     }
 
     try {
-      await navigator.clipboard.writeText(visibleSummary.copyText);
+      await navigator.clipboard.writeText(copyText);
       setCopied(true);
       if (resetCopiedTimerRef.current !== null) {
         window.clearTimeout(resetCopiedTimerRef.current);
@@ -295,7 +363,7 @@ export const ReportDiagnostics: React.FC<ReportDiagnosticsProps> = ({
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0 space-y-2">
               <p className="text-sm leading-6 text-foreground">
-                {visibleSummary.reason}
+                {reason}
               </p>
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-text">
                 {traceId ? (

@@ -348,6 +348,15 @@ class GeminiAnalyzer:
         package = sys.modules.get("src.analyzer")
         return getattr(package, name, default)
 
+    @staticmethod
+    def _analysis_max_output_tokens(report_type: Optional[str]) -> int:
+        normalized = str(report_type or "").lower()
+        if normalized == "brief":
+            return 3072
+        if normalized in {"simple", "detailed"}:
+            return 4096
+        return 8192
+
     def _get_skill_prompt_sections(self) -> tuple[str, str, bool]:
         skill_instructions = getattr(self, "_skill_instructions_override", None)
         default_skill_policy = getattr(self, "_default_skill_policy_override", None)
@@ -964,6 +973,7 @@ class GeminiAnalyzer:
         news_context: Optional[str] = None,
         progress_callback: Optional[Callable[[int, str], None]] = None,
         stream_progress_callback: Optional[Callable[[int], None]] = None,
+        report_type: Optional[str] = None,
     ) -> AnalysisResult:
         def _emit_progress(progress: int, message: str) -> None:
             if progress_callback is None:
@@ -1021,10 +1031,16 @@ class GeminiAnalyzer:
             logger.info(f"[LLM Prompt 预览]\n{prompt_preview}")
             logger.debug(f"=== 완전 Prompt ({len(prompt)}문자) ===\n{prompt}\n=== End Prompt ===")
 
+            max_output_tokens = self._analysis_max_output_tokens(report_type)
             generation_config = {
                 "temperature": config.llm_temperature,
-                "max_output_tokens": 8192,
+                "max_output_tokens": max_output_tokens,
             }
+            logger.info(
+                "[LLM config] report_type=%s, max_output_tokens=%s",
+                report_type or "default",
+                max_output_tokens,
+            )
 
             logger.info(f"[LLM호출] 시작호출 {model_name}...")
             _emit_progress(
