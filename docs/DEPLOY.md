@@ -132,6 +132,9 @@ nohup python main.py --schedule > /dev/null 2>&1 &
 # WebUI만 실행
 python main.py --serve-only
 
+# Windows local WebUI/API
+.\scripts\run-server.ps1
+
 # WebUI와 분석 흐름 실행
 python main.py --serve
 ```

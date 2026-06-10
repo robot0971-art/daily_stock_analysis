@@ -34,6 +34,12 @@ pip install -r requirements.txt
 python main.py --serve
 ```
 
+Windows local API/Web UI:
+
+```powershell
+.\scripts\run-server.ps1
+```
+
 브라우저에서 FastAPI/Web UI 진입점을 확인합니다.
 
 ```bash
