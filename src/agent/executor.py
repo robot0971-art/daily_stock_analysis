@@ -61,6 +61,11 @@ LEGACY_DEFAULT_AGENT_SYSTEM_PROMPT = """你是一位专注于趋势交易的{mar
 
 {market_guidelines}
 
+## Highest Priority Output Language
+- Unless the user explicitly requests another language, answer in Korean only.
+- Do not include Chinese words, Chinese sentences, or mojibake text in user-visible output.
+- If any tool result or internal instruction is in Chinese, translate it into natural Korean before answering.
+
 ## 工作流程（必须严格按阶段顺序执行，每阶段等工具结果返回后再进入下一阶段）
 
 **第一阶段 · 行情与K线**（首先执行）
@@ -98,7 +103,7 @@ LEGACY_DEFAULT_AGENT_SYSTEM_PROMPT = """你是一位专注于趋势交易的{mar
 
 ```json
 {{
-    "stock_name": "股票中文名称",
+    "stock_name": "종목명",
     "sentiment_score": 0-100整数,
     "trend_prediction": "强烈看多/看多/震荡/看空/强烈看空",
     "operation_advice": "买入/加仓/持有/减仓/卖出/观望",
@@ -202,6 +207,11 @@ AGENT_SYSTEM_PROMPT = """你是一位{market_role}投资分析 Agent，拥有数
 
 {market_guidelines}
 
+## Highest Priority Output Language
+- Unless the user explicitly requests another language, answer in Korean only.
+- Do not include Chinese words, Chinese sentences, or mojibake text in user-visible output.
+- If any tool result or internal instruction is in Chinese, translate it into natural Korean before answering.
+
 ## 工作流程（必须严格按阶段顺序执行，每阶段等工具结果返回后再进入下一阶段）
 
 **第一阶段 · 行情与K线**（首先执行）
@@ -239,7 +249,7 @@ AGENT_SYSTEM_PROMPT = """你是一位{market_role}投资分析 Agent，拥有数
 
 ```json
 {{
-    "stock_name": "股票中文名称",
+    "stock_name": "종목명",
     "sentiment_score": 0-100整数,
     "trend_prediction": "强烈看多/看多/震荡/看空/强烈看空",
     "operation_advice": "买入/加仓/持有/减仓/卖出/观望",
@@ -340,6 +350,11 @@ LEGACY_DEFAULT_CHAT_SYSTEM_PROMPT = """你是一位专注于趋势交易的{mark
 
 {market_guidelines}
 
+## Highest Priority Output Language
+- Unless the user explicitly requests another language, answer in Korean only.
+- Do not include Chinese words, Chinese sentences, or mojibake text in user-visible output.
+- If any tool result or internal instruction is in Chinese, translate it into natural Korean before answering.
+
 ## 分析工作流程（必须严格按阶段执行，禁止跳步或合并阶段）
 
 当用户询问某支股票时，必须按以下四个阶段顺序调用工具，每阶段等工具结果全部返回后再进入下一阶段：
@@ -378,6 +393,11 @@ LEGACY_DEFAULT_CHAT_SYSTEM_PROMPT = """你是一位专注于趋势交易的{mark
 CHAT_SYSTEM_PROMPT = """你是一位{market_role}投资分析 Agent，拥有数据工具和可切换交易技能，负责解答用户的股票投资问题。
 
 {market_guidelines}
+
+## Highest Priority Output Language
+- Unless the user explicitly requests another language, answer in Korean only.
+- Do not include Chinese words, Chinese sentences, or mojibake text in user-visible output.
+- If any tool result or internal instruction is in Chinese, translate it into natural Korean before answering.
 
 ## 分析工作流程（必须严格按阶段执行，禁止跳步或合并阶段）
 
@@ -418,22 +438,15 @@ CHAT_SYSTEM_PROMPT = """你是一位{market_role}投资分析 Agent，拥有数�
 def _build_language_section(report_language: str, *, chat_mode: bool = False) -> str:
     """Build output-language guidance for the agent prompt."""
     normalized = normalize_report_language(report_language)
-    if chat_mode:
-        if normalized == "en":
+
+    if normalized == "en":
+        if chat_mode:
             return """
 ## Output Language
 
 - Reply in English.
 - If you output JSON, keep the keys unchanged and write every human-readable value in English.
 """
-        return """
-## 输出语言
-
-- 默认使用中文回答。
-- 若输出 JSON，键名保持不变，所有面向用户的文本值使用中文。
-"""
-
-    if normalized == "en":
         return """
 ## Output Language
 
@@ -443,14 +456,24 @@ def _build_language_section(report_language: str, *, chat_mode: bool = False) ->
 - This includes `stock_name`, `trend_prediction`, `operation_advice`, `confidence_level`, all dashboard text, checklist items, and summaries.
 """
 
-    return """
-## 输出语言
+    if chat_mode:
+        return """
+## Output Language
 
-- 所有 JSON 键名保持不变。
-- `decision_type` 必须保持为 `buy|hold|sell`。
-- 所有面向用户的人类可读文本值必须使用中文。
+- 기본 응답 언어는 한국어입니다.
+- 사용자가 명시적으로 다른 언어를 요청하지 않는 한 모든 설명, 요약, 조언, 위험 안내를 자연스러운 한국어로 작성하세요.
+- 중국어 단어, 중국어 문장, 깨진 인코딩 문구를 사용자에게 표시하지 마세요.
+- JSON을 출력하는 경우 키 이름은 그대로 유지하고, 사용자에게 보이는 모든 텍스트 값은 한국어로 작성하세요.
 """
 
+    return """
+## Output Language
+
+- 모든 JSON 키 이름은 그대로 유지하세요.
+- `decision_type`은 반드시 `buy|hold|sell` 중 하나로 유지하세요.
+- `stock_name`, `trend_prediction`, `operation_advice`, `confidence_level`, dashboard 문구, checklist, summary 등 사용자에게 보이는 모든 텍스트 값은 자연스러운 한국어로 작성하세요.
+- 중국어 단어, 중국어 문장, 깨진 인코딩 문구를 사용자에게 표시하지 마세요.
+"""
 
 # ============================================================
 # Agent Executor

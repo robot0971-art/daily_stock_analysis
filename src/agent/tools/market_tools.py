@@ -26,14 +26,15 @@ def _get_fetcher_manager():
 
 def _handle_get_market_indices(region: str = "cn") -> dict:
     """Get major market indices."""
+    normalized_region = (region or "cn").strip().lower()
     manager = _get_fetcher_manager()
-    indices = manager.get_main_indices(region=region)
+    indices = manager.get_main_indices(region=normalized_region)
 
     if not indices:
-        return {"error": f"No market index data available for region '{region}'"}
+        return {"error": f"No market index data available for region '{normalized_region}'"}
 
     return {
-        "region": region,
+        "region": normalized_region,
         "indices_count": len(indices),
         "indices": indices,
     }
@@ -42,15 +43,16 @@ def _handle_get_market_indices(region: str = "cn") -> dict:
 get_market_indices_tool = ToolDefinition(
     name="get_market_indices",
     description="Get major market indices (e.g., Shanghai Composite, Shenzhen Component, "
-                "CSI 300 for China; S&P 500, Nasdaq, Dow for US). Provides market overview.",
+                "CSI 300 for China; Hang Seng for Hong Kong; S&P 500, Nasdaq, Dow for US; "
+                "KOSPI and KOSDAQ for Korea). Provides market overview.",
     parameters=[
         ToolParameter(
             name="region",
             type="string",
-            description="Market region: 'cn' for China A-shares, 'hk' for Hong Kong, 'us' for US stocks (default: 'cn')",
+            description="Market region: 'cn' for China A-shares, 'hk' for Hong Kong, 'us' for US stocks, 'kr' for Korea (default: 'cn')",
             required=False,
             default="cn",
-            enum=["cn", "hk", "us"],
+            enum=["cn", "hk", "us", "kr"],
         ),
     ],
     handler=_handle_get_market_indices,

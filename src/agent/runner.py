@@ -32,25 +32,25 @@ logger = logging.getLogger(__name__)
 
 # Tool name → friendly label for progress messages
 _THINKING_TOOL_LABELS: Dict[str, str] = {
-    "get_realtime_quote": "行情获取",
-    "get_daily_history": "K线数据获取",
-    "analyze_trend": "技术指标分析",
-    "get_chip_distribution": "筹码分布分析",
-    "search_stock_news": "新闻搜索",
-    "search_comprehensive_intel": "综合情报搜索",
-    "get_market_indices": "市场概览获取",
-    "get_sector_rankings": "行业板块分析",
-    "get_analysis_context": "历史分析上下文",
-    "get_stock_info": "基本信息获取",
-    "analyze_pattern": "K线形态识别",
-    "generate_chart_analysis": "图表综合分析",
-    "get_volume_analysis": "量能分析",
-    "calculate_ma": "均线计算",
-    "get_portfolio_snapshot": "组合快照分析",
-    "prepare_paper_order": "模拟交易准备",
-    "get_skill_backtest_summary": "技能回测概览",
-    "get_strategy_backtest_summary": "策略回测概览",
-    "get_stock_backtest_summary": "个股回测数据",
+    "get_realtime_quote": "실시간 시세 조회",
+    "get_daily_history": "일봉 데이터 조회",
+    "analyze_trend": "기술 지표 분석",
+    "get_chip_distribution": "매물대 분석",
+    "search_stock_news": "뉴스 검색",
+    "search_comprehensive_intel": "종합 정보 검색",
+    "get_market_indices": "시장 지수 조회",
+    "get_sector_rankings": "섹터 순위 분석",
+    "get_analysis_context": "이전 분석 맥락 확인",
+    "get_stock_info": "기본 정보 조회",
+    "analyze_pattern": "캔들 패턴 분석",
+    "generate_chart_analysis": "차트 종합 분석",
+    "get_volume_analysis": "거래량 분석",
+    "calculate_ma": "이동평균 계산",
+    "get_portfolio_snapshot": "포트폴리오 스냅샷 분석",
+    "prepare_paper_order": "모의 주문 준비",
+    "get_skill_backtest_summary": "스킬 백테스트 요약",
+    "get_strategy_backtest_summary": "전략 백테스트 요약",
+    "get_stock_backtest_summary": "종목 백테스트 데이터",
 }
 
 
@@ -457,11 +457,11 @@ def run_agent_loop(
         # --- progress: thinking ---
         if progress_callback:
             if not tool_calls_log:
-                thinking_msg = "正在制定分析路径..."
+                thinking_msg = "분석 경로를 정하는 중..."
             else:
                 last_tool = tool_calls_log[-1].get("tool", "")
                 label = labels.get(last_tool, last_tool)
-                thinking_msg = f"「{label}」已完成，继续深入分析..."
+                thinking_msg = f"{label} 확인을 마치고 추가 분석 중..."
             progress_callback({"type": "thinking", "step": step + 1, "message": thinking_msg})
 
         # --- LLM call ---
@@ -577,7 +577,7 @@ def run_agent_loop(
                 total_tokens,
             )
             if progress_callback:
-                progress_callback({"type": "generating", "step": step + 1, "message": "正在生成最终分析..."})
+                progress_callback({"type": "generating", "step": step + 1, "message": "최종 답변을 작성하는 중..."})
 
             final_content = response.content or ""
             is_error = response.provider == "error"

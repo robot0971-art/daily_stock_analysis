@@ -22,6 +22,55 @@ export interface ProgressStep {
   content?: string;
 }
 
+const normalizeProgressStep = (step: ProgressStep): ProgressStep => {
+  const message = typeof step.message === 'string' ? step.message.trim() : '';
+  if (!message) return step;
+
+  const normalizedMessages: Record<string, string> = {
+    '\u6b63\u5728\u5236\u5b9a\u5206\u6790\u8def\u5f84...':
+      '\ubd84\uc11d \uacbd\ub85c\ub97c \uc815\ud558\ub294 \uc911...',
+    '\u6b63\u5728\u751f\u6210\u6700\u7ec8\u5206\u6790...':
+      '\ucd5c\uc885 \ub2f5\ubcc0\uc744 \uc791\uc131\ud558\ub294 \uc911...',
+    '\u6b63\u5728\u5206\u6790\u4e2d...': '\ubd84\uc11d \uc911...',
+  };
+
+  const normalized = normalizedMessages[message];
+  return normalized ? { ...step, message: normalized } : step;
+};
+
+const normalizeChatContent = (content: string): string => {
+  if (!content) return content;
+
+  return content
+    .replace(/\u622a\u81f3\u76ee\u524d/g, '\ud604\uc7ac \uae30\uc900')
+    .replace(/\u76ee\u524d/g, '\ud604\uc7ac')
+    .replace(/\u73b0\u5728/g, '\ud604\uc7ac')
+    .replace(/\u5f53\u524d/g, '\ud604\uc7ac')
+    .replace(/\u4eca\u65e5\u5185/g, '\uc624\ub298 \uc7a5\uc911')
+    .replace(/\u65e5\u5185/g, '\uc7a5\uc911')
+    .replace(/\u77ed\u671f/g, '\ub2e8\uae30')
+    .replace(/\u6ce2\u52a8/g, '\ubcc0\ub3d9')
+    .replace(/\u53d8\u52a8/g, '\ubcc0\ub3d9')
+    .replace(/\u591a\u5934\u6392\u5217/g, '\uc815\ubc30\uc5f4')
+    .replace(/\u7a7a\u5934\u6392\u5217/g, '\uc5ed\ubc30\uc5f4')
+    .replace(/\u591a\u5934/g, '\uc0c1\uc2b9 \uc6b0\uc704')
+    .replace(/\u7a7a\u5934/g, '\ud558\ub77d \uc6b0\uc704')
+    .replace(/\u89c2\u671b/g, '\uad00\ub9dd')
+    .replace(/\u4e70\u5165/g, '\ub9e4\uc218')
+    .replace(/\u5356\u51fa/g, '\ub9e4\ub3c4')
+    .replace(/\u6301\u6709/g, '\ubcf4\uc720')
+    .replace(/\u51cf\u4ed3/g, '\ube44\uc911 \ucd95\uc18c')
+    .replace(/\u52a0\u4ed3/g, '\ucd94\uac00 \ub9e4\uc218')
+    .replace(/\u6307\u6570/g, '\uc9c0\uc218')
+    .replace(/\u4e0a\u6da8/g, '\uc0c1\uc2b9')
+    .replace(/\u4e0b\u8dcc/g, '\ud558\ub77d')
+    .replace(/\u9707\u8361/g, '\ub4f1\ub77d')
+    .replace(/\u4ea4\u6613/g, '\uac70\ub798')
+    .replace(/\u5e02\u573a/g, '\uc2dc\uc7a5')
+    .replace(/\u97e9\u56fd/g, '\ud55c\uad6d')
+    .replace(/\u80a1\u5e02/g, '\uc99d\uc2dc');
+};
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -154,7 +203,7 @@ export const useAgentChatStore = create<AgentChatState & AgentChatActions>((set,
               messages: msgs.map((m) => ({
                 id: m.id,
                 role: m.role,
-                content: m.content,
+                content: normalizeChatContent(m.content),
               })),
             });
           }
@@ -197,7 +246,7 @@ export const useAgentChatStore = create<AgentChatState & AgentChatActions>((set,
         messages: msgs.map((m) => ({
           id: m.id,
           role: m.role,
-          content: m.content,
+          content: normalizeChatContent(m.content),
         })),
       });
     } catch {
@@ -273,7 +322,7 @@ export const useAgentChatStore = create<AgentChatState & AgentChatActions>((set,
         const processLine = (line: string) => {
           if (!line.startsWith('data: ')) return;
 
-          const event = JSON.parse(line.slice(6)) as ProgressStep;
+          const event = normalizeProgressStep(JSON.parse(line.slice(6)) as ProgressStep);
           if (event.type === 'done') {
             const doneEvent = event as unknown as StreamFailureEvent;
             if (doneEvent.success === false) {
@@ -330,7 +379,7 @@ export const useAgentChatStore = create<AgentChatState & AgentChatActions>((set,
             {
               id: (Date.now() + 1).toString(),
               role: 'assistant',
-              content: finalContent || '(내용 없음)',
+              content: normalizeChatContent(finalContent || '(\ub0b4\uc6a9 \uc5c6\uc74c)'),
               skills: payload.skills,
               skill: payload.skills?.[0],
               skillNames,

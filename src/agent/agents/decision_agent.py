@@ -51,7 +51,7 @@ Requirements:
 """
             if report_language == "en":
                 return prompt + "\nAlways answer in English.\n"
-            return prompt + "\n默认使用中文回答。\n"
+            return prompt + "\nAlways answer in Korean. Do not include Chinese words, Chinese sentences, or mojibake text in user-visible output.\n"
 
         skills = ""
         if self.skill_instructions:
@@ -118,10 +118,11 @@ new decision_type values.
 """
         return prompt + """
 
-## 输出语言
-- 所有 JSON 键名保持不变。
-- `decision_type` 必须保持为 `buy|hold|sell`。
-- 所有面向用户的人类可读文本值必须使用中文。
+## Output Language
+- Keep every JSON key unchanged.
+- `decision_type` must remain `buy|hold|sell`.
+- Write every user-visible human-readable value in Korean.
+- Do not include Chinese words, Chinese sentences, or mojibake text in user-visible output.
 """
 
     def build_user_message(self, ctx: AgentContext) -> str:

@@ -415,6 +415,9 @@ class TestBuiltinToolDefinitions(unittest.TestCase):
         for td in ALL_MARKET_TOOLS:
             self.assertIsInstance(td, ToolDefinition)
             self.assertEqual(td.category, "market")
+        market_indices = next(td for td in ALL_MARKET_TOOLS if td.name == "get_market_indices")
+        region = next(param for param in market_indices.parameters if param.name == "region")
+        self.assertIn("kr", region.enum)
 
     def test_import_backtest_tools(self):
         from src.agent.tools.backtest_tools import ALL_BACKTEST_TOOLS
